@@ -7,19 +7,20 @@ import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TI
 
 import scala.collection.mutable
 import scala.compiletime.uninitialized
+import scala.scalanative.libc.stdlib.{atof, atoi, atoll}
 import scala.scalanative.unsafe.{CBool, CChar, CDouble, CFloat, CInt, CLongLong, CShort, CString, CUnsignedLongInt, CVoidPtr, Ptr, alloc}
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.{Failure, Success, Try}
 
 trait RowResult:
-  def getString(index: Int | String): Option[String]
-  def getInt(index: Int | String): Option[Int]
-  def getShort(index: Int | String): Option[Short]
-  def getLong(index: Int | String): Option[Long]
-  def getFloat(index: Int | String): Option[Float]
-  def getDouble(index: Int | String): Option[Double]
-  def getBoolean(index: Int | String): Option[Boolean]
-  def getAs[T <: ScalaTypes](index: Int | String)(using TypeConverter[T]): Option[T]
+  def getString(index: Int | String): WithZone[Option[String]]
+  def getInt(index: Int | String): WithZone[Option[Int]]
+  def getShort(index: Int | String): WithZone[Option[Short]]
+  def getLong(index: Int | String): WithZone[Option[Long]]
+  def getFloat(index: Int | String): WithZone[Option[Float]]
+  def getDouble(index: Int | String): WithZone[Option[Double]]
+  def getBoolean(index: Int | String): WithZone[Option[Boolean]]
+  def getAs[T <: ScalaTypes](index: Int | String)(using TypeConverter[T]): WithZone[Option[T]]
 
 trait RowResultSet extends AutoCloseable:
   def count: Int
@@ -27,12 +28,14 @@ trait RowResultSet extends AutoCloseable:
   def next(): TryWithZone[Option[RowResult]]
 
 private[mysql4s] case class Column(name: String,
-                  index: Int,
-                  typ: enum_field_types,
-                  isNull: Boolean = false,
-                  error: Boolean = false,
-                  length: Int = 0,
-                  ptr: CVoidPtr = null)
+                                   index: Int,
+                                   typ: enum_field_types,
+                                   isNull: Boolean = false,
+                                   error: Boolean = false,
+                                   length: Int = 0,
+                                   ptr: CVoidPtr = null,
+                                   precision: Int = 0,
+                                   decimals: Int = 0)
 
 class Result(columns: Seq[Column]) extends RowResult:
 
@@ -41,27 +44,27 @@ class Result(columns: Seq[Column]) extends RowResult:
       case i: Int => columns.lift(i)
       case s: String => columns.find(_.name == s)
 
-  def getAs[T <: ScalaTypes](index: Int | String)(using nc: TypeConverter[T]): Option[T] =
+  def getAs[T <: ScalaTypes](index: Int | String)(using nc: TypeConverter[T]): WithZone[Option[T]] =
     col(index) match
       case Some(col) => nc.fromNative(col.ptr) |> Some.apply
       case None => None
 
-  def getString(index: Int | String): Option[String] = getAs[String](index)
+  def getString(index: Int | String): WithZone[Option[String]] = getAs[String](index)
 
-  def getShort(index: Int | String): Option[Short] = getAs[Short](index)
+  def getShort(index: Int | String): WithZone[Option[Short]] = getAs[Short](index)
 
-  def getInt(index: Int | String): Option[Int] = getAs[Int](index)
+  def getInt(index: Int | String): WithZone[Option[Int]] = getAs[Int](index)
 
-  def getLong(index: Int | String): Option[Long] = getAs[Long](index)
+  def getLong(index: Int | String): WithZone[Option[Long]] = getAs[Long](index)
 
-  def getFloat(index: Int | String): Option[Float] = getAs[Float](index)
+  def getFloat(index: Int | String): WithZone[Option[Float]] = getAs[Float](index)
 
-  def getDouble(index: Int | String): Option[Double] = getAs[Double](index)
+  def getDouble(index: Int | String): WithZone[Option[Double]] = getAs[Double](index)
 
-  def getBoolean(index: Int | String): Option[Boolean] = getAs[Boolean](index)
+  def getBoolean(index: Int | String): WithZone[Option[Boolean]] = getAs[Boolean](index)
 
 
-class ResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
+class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
 
   private var resPtr: Ptr[MYSQL_RES] = uninitialized
 
@@ -126,8 +129,9 @@ class ResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
       case 0 | 101 => // 101 = MYSQL_DATA_TRUNCATED
         val cols = mutable.ListBuffer[Column]()
         for col <- columns do
+
           val valPtr =
-            if isCString(col.typ)
+            if isMysqlString(col.typ) || isMysqlDecimal(col.typ) // decimal return char[]
             then allocColumnString(col)
             else bindsPtr(col.index).buffer
 
@@ -206,3 +210,91 @@ class ResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
     mysql_free_result(resPtr)
     val _ = mysql_stmt_close(stmtPtr)
 
+class ResultSet(resPtr: Ptr[MYSQL_RES]) extends RowResultSet:
+
+  private var numFields: Int = 0
+  private var numRows: Int = 0
+  private var currRowIndex = 0
+  private val columns = mutable.ListBuffer[Column]()
+
+  //https://github.com/brianmario/mysql2/blob/master/ext/mysql2/result.c
+  def init(): Unit =
+    numRows = mysql_num_rows(resPtr).toInt
+    numFields = mysql_num_fields(resPtr).toInt
+    val cols = mysql_fetch_fields(resPtr)
+    for i <- 0 until numFields do
+      val col = cols(i)
+      columns.append(
+        Column(
+          name = toStr(col.name),
+          index = i,
+          typ = col.`type`,
+          precision = col.length.toInt - (if col.decimals.toInt > 0 then 2 else 1),
+          decimals = col.decimals.toInt))
+
+  override def count: Int = numRows
+
+  override def hasNext: Boolean = currRowIndex < numRows
+
+  override def next(): TryWithZone[Option[RowResult]] =
+    if hasNext
+    then next0()
+    else Success(None)
+
+  private def next0(): TryWithZone[Option[RowResult]] =
+    val row = mysql_fetch_row(resPtr)
+    val lengths = mysql_fetch_lengths(resPtr)
+
+    val cols = mutable.ListBuffer[Column]()
+    for col <- columns do
+      //println(s"${col.name}, ${col.typ}")
+      val valRow = row.value(col.index)
+      val valPtr: CVoidPtr = col.typ match
+        case enum_field_types.MYSQL_TYPE_LONG =>
+          val ptr = alloc[CInt]()
+          !ptr = atoi(valRow)
+          ptr
+        case enum_field_types.MYSQL_TYPE_LONGLONG =>
+          val ptr = alloc[CLongLong]()
+          !ptr = atoll(valRow)
+          ptr
+        case enum_field_types.MYSQL_TYPE_SHORT =>
+          val ptr = alloc[CShort]()
+          !ptr = atoi(valRow).toShort
+          ptr
+        case enum_field_types.MYSQL_TYPE_DOUBLE | enum_field_types.MYSQL_TYPE_NEWDECIMAL | enum_field_types.MYSQL_TYPE_DECIMAL =>
+          val ptr = alloc[CDouble]()
+          !ptr = atof(valRow)
+          ptr
+        case enum_field_types.MYSQL_TYPE_FLOAT =>
+          val ptr = alloc[CDouble]()
+          !ptr = atof(valRow).toFloat
+          ptr
+        case enum_field_types.MYSQL_TYPE_TINY =>
+          val ptr = alloc[CBool]()
+          !ptr = atoi(valRow) == 1
+          ptr
+        case enum_field_types.MYSQL_TYPE_TIME | enum_field_types.MYSQL_TYPE_DATE | enum_field_types.MYSQL_TYPE_DATETIME | enum_field_types.MYSQL_TYPE_TIMESTAMP =>
+          val ptr = alloc[MYSQL_TIME]()
+          ptr
+        case enum_field_types.MYSQL_TYPE_STRING | enum_field_types.MYSQL_TYPE_VAR_STRING | enum_field_types.MYSQL_TYPE_VARCHAR =>
+          valRow
+        case _ =>
+          println(s"type? ${col.typ}")
+          val ptr = alloc[CInt]()
+          ptr
+
+      cols.append(
+        Column(
+          name = col.name,
+          index = col.index,
+          typ = col.typ,
+          isNull = valPtr == null,
+          length = lengths(col.index).toInt,
+          ptr = valPtr))
+
+    currRowIndex += 1
+    Result(cols.toSeq) |> Some |> Success
+
+  override def close(): Unit =
+    if resPtr != null then mysql_free_result(resPtr)

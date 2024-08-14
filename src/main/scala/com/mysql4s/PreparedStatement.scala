@@ -2,7 +2,6 @@ package com.mysql4s
 
 import com.mysql4s.MySqlException.exn
 import com.mysql4s.Statement.collectStmtExn
-import com.mysql4s.bindings.enumerations.enum_field_types
 import com.mysql4s.bindings.extern_functions.*
 import com.mysql4s.bindings.structs.*
 
@@ -10,7 +9,6 @@ import java.util.Date
 import scala.compiletime.uninitialized
 import scala.scalanative
 import scala.scalanative.unsafe.*
-import scala.scalanative.unsafe.Tag.{Ptr as _, *}
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.{Failure, Success, Try}
 
@@ -71,7 +69,7 @@ private[mysql4s] class Statement(mysql: MySql) extends PreparedStatement:
     yield affectedRows.toInt
 
   override def executeQuery(): TryWithZone[RowResultSet] =
-    val resultSet = new ResultSet(stmtPtr)
+    val resultSet = new StmtResultSet(stmtPtr)
     for
       _ <- bind()
       _ <- exec()

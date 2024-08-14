@@ -1,9 +1,8 @@
 package com.mysql4s.bindings
 
+import _root_.scala.scalanative.*
 import _root_.scala.scalanative.unsafe.*
 import _root_.scala.scalanative.unsigned.*
-import _root_.scala.scalanative.libc.*
-import _root_.scala.scalanative.*
 
 object predef:
   private[mysql4s] trait CEnum[T](using eq: T =:= Int):
@@ -685,9 +684,6 @@ object enumerations:
       inline def is(b: net_async_status): Boolean = (a & b) == b
 
 object aliases:
-  import _root_.com.mysql4s.bindings.enumerations.*
-  import _root_.com.mysql4s.bindings.predef.*
-  import _root_.com.mysql4s.bindings.aliases.*
   import _root_.com.mysql4s.bindings.structs.*
   opaque type MYSQL_FIELD_OFFSET = CUnsignedInt
   object MYSQL_FIELD_OFFSET: 
@@ -827,9 +823,9 @@ object aliases:
       inline def value: unsafe.CVarArgList = v
 
 object structs:
+  import _root_.com.mysql4s.bindings.aliases.*
   import _root_.com.mysql4s.bindings.enumerations.*
   import _root_.com.mysql4s.bindings.predef.*
-  import _root_.com.mysql4s.bindings.aliases.*
   import _root_.com.mysql4s.bindings.structs.*
   opaque type CHARSET_INFO = CStruct0
   object CHARSET_INFO:
@@ -2062,9 +2058,8 @@ object structs:
 @link("mysqlclient")
 @extern
 private[mysql4s] object extern_functions:
-  import _root_.com.mysql4s.bindings.enumerations.*
-  import _root_.com.mysql4s.bindings.predef.*
   import _root_.com.mysql4s.bindings.aliases.*
+  import _root_.com.mysql4s.bindings.enumerations.*
   import _root_.com.mysql4s.bindings.structs.*
   def ER_CLIENT(client_errno : CInt): CString = extern
 
@@ -2471,11 +2466,9 @@ private[mysql4s] object extern_functions:
 
 
 object functions:
-  import _root_.com.mysql4s.bindings.enumerations.*
-  import _root_.com.mysql4s.bindings.predef.*
   import _root_.com.mysql4s.bindings.aliases.*
+  import _root_.com.mysql4s.bindings.enumerations.*
   import _root_.com.mysql4s.bindings.structs.*
-  import extern_functions.*
   export extern_functions.*
 
 object constants:

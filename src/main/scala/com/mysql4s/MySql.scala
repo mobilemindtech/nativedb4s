@@ -77,7 +77,15 @@ class MySql extends Closeable:
     finally 
       stmt.close()  
 
-  def realQuery(query: String): TryWithZone[Seq[RowResult]] = ???
+  def realQuery(query: String): TryWithZone[RowResultSet] =
+    if mysql_real_query(mysqlPtr, query.c_str(), query.length.toUSize) > 0
+    then Failure(collectExn("Failed to execute query"))
+    else
+      val result = mysql_store_result(mysqlPtr)
+      val rs = new ResultSet(result)
+      rs.init()
+      Success(rs)
+
 
   def realQueryExec(query: String): TryWithZone[Int] =
     if mysql_real_query(mysqlPtr, query.c_str(), query.length.toUSize) == 0
