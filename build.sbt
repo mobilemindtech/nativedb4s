@@ -30,14 +30,14 @@ scalacOptions ++= Seq(
 )
 
 lazy val root = project.in(file(".")).
-  enablePlugins(ScalaNativePlugin, BindgenPlugin, VcpkgNativePlugin).
+  enablePlugins(ScalaNativePlugin, BindgenPlugin, VcpkgNativePlugin, ScalaNativeJUnitPlugin).
   settings(
 
     vcpkgDependencies := VcpkgDependencies("libmysql", "openssl", "zlib"),
     vcpkgNativeConfig ~= { _.addRenamedLibrary("libmysql", "mysqlclient") },
 
     libraryDependencies ++= Seq(
-      "org.scalameta" %% "munit" % "1.0.0" % Test
+      //"org.scalameta" %% "munit" % "1.0.0" % Test
     ),
 
     // defaults set with common options shown
@@ -56,7 +56,7 @@ lazy val root = project.in(file(".")).
         //  )
         //)
         .withSourceLevelDebuggingConfig(_.enableAll) // enable generation of debug informations
-        .withOptimize(false)  // disable Scala Native optimizer
+        .withOptimize(true)  // disable Scala Native optimizer
         .withMode(scalanative.build.Mode.debug) // compile using LLVM without optimizations
         .withCompileOptions(c.compileOptions ++ Seq("-g"))
     },
@@ -165,3 +165,4 @@ def configurePlatform(rename: String => String = identity) = Seq(
 
 addCommandAlias("run", "appStart")
 
+testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-s", "-v")

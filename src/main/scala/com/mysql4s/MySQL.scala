@@ -11,18 +11,27 @@ import scala.scalanative.unsafe.Ptr
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.{Failure, Success, Try}
 
-object MySql:
+object MySQL:
   def connect(host: String,
               user: String,
               password: String,
               database: String,
-              port: Int = 3306): TryWithZone[MySql] =
-    val mysql = new MySql()
+              port: Int = 3306): TryWithZone[Connection] =
+    val mysql = new Connection()
     for
       _ <- mysql.connect(host, user, password, database, port)
     yield mysql
 
-class MySql extends Closeable:
+  def connectExn(host: String,
+                 user: String,
+                 password: String,
+                 database: String,
+                 port: Int = 3306): WithZone[Connection] =
+    connect(host, user, password, database, port) match
+      case Success(mysql) => mysql
+      case Failure(err) => throw err
+
+class Connection extends Closeable:
 
   import MySqlException.exn
 

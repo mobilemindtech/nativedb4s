@@ -5,6 +5,7 @@ import com.mysql4s.bindings.enumerations.enum_field_types
 import com.mysql4s.bindings.extern_functions.*
 import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TIME}
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.compiletime.uninitialized
 import scala.scalanative.libc.stdlib.{atof, atoi, atoll}
@@ -26,6 +27,37 @@ trait RowResultSet extends AutoCloseable:
   def count: Int
   def hasNext: Boolean
   def next(): TryWithZone[Option[RowResult]]
+  def isEmpty: Boolean = count == 0
+  def isNotEmpty: Boolean = !isEmpty
+
+  def map[T](f: RowResult => T): TryWithZone[Seq[T]] =
+    val items = mutable.ListBuffer[T]()
+    @tailrec
+    def each(): Try[Seq[T]] = next() match
+      case Success(Some(row)) =>
+        items.append(f(row))
+        each()
+      case Success(None) => Success(items.toSeq)
+      case Failure(err) => Failure(err)
+    each()
+
+  def foreach(f: RowResult => Unit): TryWithZone[Unit] =
+    @tailrec
+    def each(): Try[Unit] = next() match
+      case Success(Some(row)) =>
+        f(row)
+        each()
+      case Success(None) => Success(())
+      case Failure(err) => Failure(err)
+    each()
+
+  def first: TryWithZone[Option[RowResult]] = next()
+
+  def firstMap[T](f: RowResult => T): TryWithZone[Option[T]] =
+    first match
+      case Success(Some(row)) => Success(Some(f(row)))
+      case Success(None) => Success(None)
+      case Failure(err) => Failure(err)
 
 private[mysql4s] case class Column(name: String,
                                    index: Int,
@@ -46,7 +78,7 @@ class Result(columns: Seq[Column]) extends RowResult:
 
   def getAs[T <: ScalaTypes](index: Int | String)(using nc: TypeConverter[T]): WithZone[Option[T]] =
     col(index) match
-      case Some(col) => nc.fromNative(col.ptr) |> Some.apply
+      case Some(col) => nc.fromNative(col.ptr, col.typ) |> Some.apply
       case None => None
 
   def getString(index: Int | String): WithZone[Option[String]] = getAs[String](index)

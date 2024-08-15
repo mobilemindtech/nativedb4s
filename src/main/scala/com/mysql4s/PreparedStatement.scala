@@ -12,21 +12,23 @@ import scala.scalanative.unsafe.*
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.{Failure, Success, Try}
 
+import TypeConverter.DoubleConverter
+
 //type StmtTypes = String | Int | Long | Short | Double | Float | Boolean | Date
 
 type ZoneUnit = Zone ?=> Unit
 
 trait PreparedStatement extends AutoCloseable:
-  def setString(index: Int, value: String | Null): ZoneUnit
-  def setShort(index: Int, value: Short | Null): ZoneUnit
-  def setInt(index: Int, value: Int | Null): ZoneUnit
-  def setLong(index: Int, value: Long | Null): ZoneUnit
-  def setFloat(index: Int, value: Float | Null): ZoneUnit
-  def setDouble(index: Int, value: Double | Null): ZoneUnit
-  def setBoolean(index: Int, value: Boolean | Null): ZoneUnit
-  def setDate(index: Int, value: Date | Null): ZoneUnit
-  def setDateTime(index: Int, value: Date | Null): ZoneUnit
-  def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using TypeConverter[T]): ZoneUnit
+  def setString(index: Int, value: String | Null): WithZone[PreparedStatement]
+  def setShort(index: Int, value: Short | Null): WithZone[PreparedStatement]
+  def setInt(index: Int, value: Int | Null): WithZone[PreparedStatement]
+  def setLong(index: Int, value: Long | Null): WithZone[PreparedStatement]
+  def setFloat(index: Int, value: Float | Null): WithZone[PreparedStatement]
+  def setDouble(index: Int, value: Double | Null): WithZone[PreparedStatement]
+  def setBoolean(index: Int, value: Boolean | Null): WithZone[PreparedStatement]
+  def setDate(index: Int, value: Date | Null): WithZone[PreparedStatement]
+  def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement]
+  def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using TypeConverter[T]): WithZone[PreparedStatement]
   def execute(): TryWithZone[Int]
   def execute(query: String, args: ScalaTypes*): TryWithZone[Int]
   def executeQuery(): TryWithZone[RowResultSet]
@@ -39,7 +41,7 @@ private[mysql4s] object Statement:
     val error = mysql_stmt_error(stmt)
     exn(s"$message. Error: ${toStr(error)}", code.toInt)
 
-private[mysql4s] class Statement(mysql: MySql) extends PreparedStatement:
+private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
 
   private var stmtPtr: Ptr[MYSQL_STMT] = uninitialized
   private var bindPtr: Ptr[MYSQL_BIND] = uninitialized
@@ -95,16 +97,10 @@ private[mysql4s] class Statement(mysql: MySql) extends PreparedStatement:
     mysql_stmt_free_result(stmtPtr)
     val _ = mysql_stmt_close(stmtPtr)
 
-  private def getNumFields(res: Ptr[MYSQL_RES]): Int =
-    mysql_num_fields(res).toInt
-
-  private def fieldCount(): Int =
-    mysql_stmt_field_count(stmtPtr).toInt
-
   private def paramsCount(): Int =
     mysql_stmt_param_count(stmtPtr).toInt
 
-  override def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using tc: TypeConverter[T]): ZoneUnit =
+  override def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using tc: TypeConverter[T]): WithZone[PreparedStatement] =
     val bind = bindPtr(index)
     bind.length = null
     bind.is_null = null
@@ -148,33 +144,34 @@ private[mysql4s] class Statement(mysql: MySql) extends PreparedStatement:
         println(s"invalid type $value")
 
     bind.buffer_type = tc.mysqlType
+    this
 
-  override def setString(index: Int, value: String | Null): ZoneUnit =
+  override def setString(index: Int, value: String | Null): WithZone[PreparedStatement] =
     setAs[String](index, value)
 
-  override def setInt(index: Int, value: Int | Null): ZoneUnit =
+  override def setInt(index: Int, value: Int | Null): WithZone[PreparedStatement] =
     setAs[Int](index, value)
 
-  override def setLong(index: Int, value: Long | Null): ZoneUnit =
+  override def setLong(index: Int, value: Long | Null): WithZone[PreparedStatement] =
     setAs[Long](index, value)
 
-  override def setShort(index: Int, value: Short | Null): ZoneUnit =
+  override def setShort(index: Int, value: Short | Null): WithZone[PreparedStatement] =
     setAs[Short](index, value)
 
-  override def setDouble(index: Int, value: Double | Null): ZoneUnit =
+  override def setDouble(index: Int, value: Double | Null): WithZone[PreparedStatement] =
     setAs[Double](index, value)
 
-  override def setFloat(index: Int, value: Float | Null): ZoneUnit =
+  override def setFloat(index: Int, value: Float | Null): WithZone[PreparedStatement] =
     setAs[Float](index, value)
 
-  override def setBoolean(index: Int, value: Boolean | Null): ZoneUnit =
+  override def setBoolean(index: Int, value: Boolean | Null): WithZone[PreparedStatement] =
     setAs[Boolean](index, value)
 
-  override def setDate(index: Int, value: Date | Null): ZoneUnit = ???
+  override def setDate(index: Int, value: Date | Null): WithZone[PreparedStatement] = ???
 
-  override def setDateTime(index: Int, value: Date | Null): ZoneUnit = ???
+  override def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement] = ???
 
-  private def bindValues(values: Seq[ScalaTypes]): ZoneUnit =
+  private def bindValues(values: Seq[ScalaTypes]): WithZone[Unit] =
     for i <- values.indices do
       values(i) match
         case (s: String) => setAs(i, s)
