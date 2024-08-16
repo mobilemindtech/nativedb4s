@@ -5,7 +5,7 @@ import com.mysql4s.Statement.collectStmtExn
 import com.mysql4s.bindings.extern_functions.*
 import com.mysql4s.bindings.structs.*
 
-import java.util.Date
+import java.util.{Calendar, Date}
 import scala.compiletime.uninitialized
 import scala.scalanative
 import scala.scalanative.unsafe.*
@@ -28,6 +28,8 @@ trait PreparedStatement extends AutoCloseable:
   def setBoolean(index: Int, value: Boolean | Null): WithZone[PreparedStatement]
   def setDate(index: Int, value: Date | Null): WithZone[PreparedStatement]
   def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement]
+  def setTime(index: Int, value: Date | Null): WithZone[PreparedStatement]
+  def setTimestamp(index: Int, value: Date | Null): WithZone[PreparedStatement]
   def setBytes(index: Int, value: Array[Byte] | Null): WithZone[PreparedStatement]
   def setAs[T <: ScalaTypes](index: Int, value: T | Null): WithZone[PreparedStatement]
   def execute(): TryWithZone[Int]
@@ -160,6 +162,44 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
         bind.buffer = ptr
         bind.buffer_length = v.length.toUInt
         bind.buffer_type = enum_field_types.MYSQL_TYPE_BLOB
+      case date: MysqlTime =>
+        val ptr = alloc[MYSQL_TIME]()
+        val cal = Calendar.getInstance()
+        cal.setTime(date.toDate)
+        ptr(0).hour = cal.get(Calendar.HOUR).toUInt
+        ptr(0).minute = cal.get(Calendar.MINUTE).toUInt
+        ptr(0).second = cal.get(Calendar.SECOND).toUInt
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_TIME
+      case date: MysqlDate =>
+        val ptr = alloc[MYSQL_TIME]()
+        val cal = Calendar.getInstance()
+        cal.setTime(date.toDate)
+        ptr(0).year  = cal.get(Calendar.YEAR).toUInt
+        ptr(0).month = cal.get(Calendar.MONTH).toUInt
+        ptr(0).day = cal.get(Calendar.DATE).toUInt
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_DATE
+      case date: MysqlDateTime =>
+        val ptr = alloc[MYSQL_TIME]()
+        val cal = Calendar.getInstance()
+        cal.setTime(date.toDate)
+        ptr(0).hour = cal.get(Calendar.HOUR).toUInt
+        ptr(0).minute = cal.get(Calendar.MINUTE).toUInt
+        ptr(0).second = cal.get(Calendar.SECOND).toUInt
+        ptr(0).year  = cal.get(Calendar.YEAR).toUInt
+        ptr(0).month = cal.get(Calendar.MONTH).toUInt
+        ptr(0).day = cal.get(Calendar.DATE).toUInt
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_DATETIME
+      case date: MysqlDateTime =>
+        val ptr = alloc[MYSQL_TIME]()
+        val cal = Calendar.getInstance()
+        cal.setTime(date.toDate)
+        ptr(0).hour = cal.get(Calendar.HOUR).toUInt
+        ptr(0).minute = cal.get(Calendar.MINUTE).toUInt
+        ptr(0).second = cal.get(Calendar.SECOND).toUInt
+        ptr(0).year  = cal.get(Calendar.YEAR).toUInt
+        ptr(0).month = cal.get(Calendar.MONTH).toUInt
+        ptr(0).day = cal.get(Calendar.DATE).toUInt
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_TIMESTAMP
       case _ =>
         throw MySqlException(s"invalid type $value")
 
@@ -185,10 +225,18 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
 
   override def setBoolean(index: Int, value: Boolean | Null): WithZone[PreparedStatement] =
     setAs[Boolean](index, value)
+  
+  override def setTime(index: Int, value: Date | Null): WithZone[PreparedStatement] =
+    setAs[MysqlTime](index, MysqlTime(value))
 
-  override def setDate(index: Int, value: Date | Null): WithZone[PreparedStatement] = ???
+  override def setDate(index: Int, value: Date | Null): WithZone[PreparedStatement] =
+    setAs[MysqlDate](index, MysqlDate(value))
 
-  override def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement] = ???
+  override def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement] =
+    setAs[MysqlDateTime](index, MysqlDateTime(value))
+
+  override def setTimestamp(index: Int, value: Date | Null): WithZone[PreparedStatement] =
+    setAs[MysqlTimestamp](index, MysqlTimestamp(value))
 
   override def setBytes(index: CInt, value: Array[Byte] | Null): WithZone[PreparedStatement] =
     setAs[Array[Byte]](index, value)

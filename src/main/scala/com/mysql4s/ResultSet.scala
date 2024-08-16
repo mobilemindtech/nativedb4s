@@ -5,6 +5,7 @@ import com.mysql4s.bindings.enumerations.enum_field_types
 import com.mysql4s.bindings.extern_functions.*
 import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TIME}
 
+import java.util.Date
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.compiletime.uninitialized
@@ -97,6 +98,22 @@ class Result(columns: Seq[Column]) extends RowResult:
   def getBoolean(index: Int | String): WithZone[Option[Boolean]] = getAs[Boolean](index)
 
   def getBytes(index: Int | String): WithZone[Option[Array[Byte]]] = getAs[Array[Byte]](index)
+
+  def getTime(index: Int | String): WithZone[Option[Date]] = getAs[MysqlTime](index) match
+    case null => null
+    case Some(d) => Some(d.toDate)
+
+  def getDate(index: Int | String): WithZone[Option[Date]] = getAs[MysqlDate](index) match
+    case null => null
+    case Some(d) => Some(d.toDate)
+
+  def getDateTime(index: Int | String): WithZone[Option[Date]] = getAs[MysqlDateTime](index) match
+    case null => null
+    case Some(d) => Some(d.toDate)
+
+  def getTimestamp(index: Int | String): WithZone[Option[Date]] = getAs[MysqlTimestamp](index) match
+    case null => null
+    case Some(d) => Some(d.toDate)
 
 class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
 
