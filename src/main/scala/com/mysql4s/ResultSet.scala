@@ -21,6 +21,7 @@ trait RowResult:
   def getFloat(index: Int | String): WithZone[Option[Float]]
   def getDouble(index: Int | String): WithZone[Option[Double]]
   def getBoolean(index: Int | String): WithZone[Option[Boolean]]
+  def getBytes(index: Int | String): WithZone[Option[Array[Byte]]]
   def getAs[T <: ScalaTypes](index: Int | String)(using TypeConverter[T]): WithZone[Option[T]]
 
 trait RowResultSet extends AutoCloseable:
@@ -78,7 +79,7 @@ class Result(columns: Seq[Column]) extends RowResult:
 
   def getAs[T <: ScalaTypes](index: Int | String)(using nc: TypeConverter[T]): WithZone[Option[T]] =
     col(index) match
-      case Some(col) => nc.fromNative(col.ptr, col.typ) |> Some.apply
+      case Some(col) => nc.fromNative(col.ptr, col.typ, col.length) |> Some.apply
       case None => None
 
   def getString(index: Int | String): WithZone[Option[String]] = getAs[String](index)
@@ -95,6 +96,7 @@ class Result(columns: Seq[Column]) extends RowResult:
 
   def getBoolean(index: Int | String): WithZone[Option[Boolean]] = getAs[Boolean](index)
 
+  def getBytes(index: Int | String): WithZone[Option[Array[Byte]]] = getAs[Array[Byte]](index)
 
 class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
 
@@ -163,8 +165,10 @@ class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
         for col <- columns do
 
           val valPtr =
-            if isMysqlString(col.typ) || isMysqlDecimal(col.typ) // decimal return char[]
+            if isMysqlString(col.typ)  // decimal return char[]
             then allocColumnString(col)
+            else if isMysqlBytes(col.typ) || isMysqlDecimal(col.typ)
+            then allocColumnBytes(col)
             else bindsPtr(col.index).buffer
 
           cols.append(
@@ -198,27 +202,38 @@ class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
     buffer(realLen - 1) = '\u0000'.toByte
     buffer
 
+  private def allocColumnBytes(col: Column): WithZone[CVoidPtr] =
+    val realLen = lengthPtr(col.index).toInt
+    val buffer = alloc[CChar](realLen)
+    val bind = bindsPtr + col.index
+    println(s"allocColumnBytes ${col.name} len = ${realLen}")
+    (!bind).buffer = buffer
+    (!bind).buffer_length = realLen.toUInt
+    if mysql_stmt_fetch_column(stmtPtr, bind, col.index.toUInt, 0.toUInt) > 0
+    then println(s"${collectStmtExn("error to fetch column", stmtPtr)}")
+    buffer
+
   private def allocBufferType(typ: enum_field_types): WithZone[CVoidPtr] =
     val valPtr: CVoidPtr = typ match
-      case enum_field_types.MYSQL_TYPE_VAR_STRING | enum_field_types.MYSQL_TYPE_STRING | enum_field_types.MYSQL_TYPE_BLOB | enum_field_types.MYSQL_TYPE_NULL =>
-        alloc[CChar]()
       case enum_field_types.MYSQL_TYPE_LONG =>
         alloc[CInt]()
       case enum_field_types.MYSQL_TYPE_LONGLONG =>
         alloc[CLongLong]()
       case enum_field_types.MYSQL_TYPE_SHORT =>
         alloc[CShort]()
-      case enum_field_types.MYSQL_TYPE_DOUBLE | enum_field_types.MYSQL_TYPE_NEWDECIMAL =>
+      case enum_field_types.MYSQL_TYPE_DOUBLE  =>
         alloc[CDouble]()
       case enum_field_types.MYSQL_TYPE_FLOAT =>
         alloc[CFloat]()
       case enum_field_types.MYSQL_TYPE_TINY =>
         alloc[CBool]()
-      case enum_field_types.MYSQL_TYPE_TIME | enum_field_types.MYSQL_TYPE_DATE | enum_field_types.MYSQL_TYPE_DATETIME | enum_field_types.MYSQL_TYPE_TIMESTAMP =>
+      case enum_field_types.MYSQL_TYPE_TIME |
+           enum_field_types.MYSQL_TYPE_DATE |
+           enum_field_types.MYSQL_TYPE_DATETIME |
+           enum_field_types.MYSQL_TYPE_TIMESTAMP =>
         alloc[MYSQL_TIME]()
       case _ =>
-        println(s"type? $typ")
-        alloc[CString]()
+        alloc[CChar]()
     valPtr
 
   private def bindResult(): Try[Unit] =
@@ -294,7 +309,9 @@ class ResultSet(resPtr: Ptr[MYSQL_RES]) extends RowResultSet:
           val ptr = alloc[CShort]()
           !ptr = atoi(valRow).toShort
           ptr
-        case enum_field_types.MYSQL_TYPE_DOUBLE | enum_field_types.MYSQL_TYPE_NEWDECIMAL | enum_field_types.MYSQL_TYPE_DECIMAL =>
+        case enum_field_types.MYSQL_TYPE_DOUBLE |
+             enum_field_types.MYSQL_TYPE_NEWDECIMAL |
+             enum_field_types.MYSQL_TYPE_DECIMAL =>
           val ptr = alloc[CDouble]()
           !ptr = atof(valRow)
           ptr
@@ -306,15 +323,17 @@ class ResultSet(resPtr: Ptr[MYSQL_RES]) extends RowResultSet:
           val ptr = alloc[CBool]()
           !ptr = atoi(valRow) == 1
           ptr
-        case enum_field_types.MYSQL_TYPE_TIME | enum_field_types.MYSQL_TYPE_DATE | enum_field_types.MYSQL_TYPE_DATETIME | enum_field_types.MYSQL_TYPE_TIMESTAMP =>
+        case enum_field_types.MYSQL_TYPE_TIME |
+             enum_field_types.MYSQL_TYPE_DATE |
+             enum_field_types.MYSQL_TYPE_DATETIME |
+             enum_field_types.MYSQL_TYPE_TIMESTAMP =>
           val ptr = alloc[MYSQL_TIME]()
           ptr
-        case enum_field_types.MYSQL_TYPE_STRING | enum_field_types.MYSQL_TYPE_VAR_STRING | enum_field_types.MYSQL_TYPE_VARCHAR =>
-          valRow
         case _ =>
-          println(s"type? ${col.typ}")
-          val ptr = alloc[CInt]()
-          ptr
+          if isMysqlString(col.typ) || isMysqlBytes(col.typ)
+          then valRow
+          else
+            throw MySqlException(s"type ${col.typ} not handled")
 
       cols.append(
         Column(

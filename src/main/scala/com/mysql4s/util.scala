@@ -18,14 +18,25 @@ type WithZone[T] = Zone ?=> T
 type TryWithZone[T] = WithZone[Try[T]]
 
 private[mysql4s] def isMysqlString(typ: enum_field_types): Boolean =
-  typ == enum_field_types.MYSQL_TYPE_STRING || typ == enum_field_types.MYSQL_TYPE_VAR_STRING || typ == enum_field_types.MYSQL_TYPE_VARCHAR
+  typ match
+    case enum_field_types.MYSQL_TYPE_STRING |
+         enum_field_types.MYSQL_TYPE_VAR_STRING |
+         enum_field_types.MYSQL_TYPE_VARCHAR => true
+    case _ => false
+
+private[mysql4s] def isMysqlBytes(typ: enum_field_types): Boolean =
+  typ match
+    case enum_field_types.MYSQL_TYPE_TINY_BLOB |
+         enum_field_types.MYSQL_TYPE_BLOB |
+         enum_field_types.MYSQL_TYPE_MEDIUM_BLOB |
+         enum_field_types.MYSQL_TYPE_LONG_BLOB => true
+    case _ => false
 
 private[mysql4s] def isMysqlDecimal(typ: enum_field_types): Boolean =
   typ == enum_field_types.MYSQL_TYPE_DECIMAL || typ == enum_field_types.MYSQL_TYPE_NEWDECIMAL
 
 
-type ScalaTypes = String | Int | Short | Long | Float | Double | Boolean
-type MysqlTypes = CString | CInt | CShort | CLongLong | CFloat | CDouble | CBool
+type ScalaTypes = String | Int | Short | Long | Float | Double | Boolean | Array[Byte]
 type MysqlTypesPtr = CString | Ptr[CInt] | Ptr[CShort] | Ptr[CLongLong] | Ptr[CFloat] | Ptr[CDouble] | Ptr[CBool]
 
 extension (x: Any)

@@ -7,7 +7,7 @@ import java.io.Closeable
 import scala.compiletime.uninitialized
 import scala.scalanative
 import scala.scalanative.unsafe
-import scala.scalanative.unsafe.Ptr
+import scala.scalanative.unsafe.{CChar, CString, CUnsignedLongInt, Ptr, alloc}
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.{Failure, Success, Try}
 
@@ -86,8 +86,9 @@ class Connection extends Closeable:
     finally 
       stmt.close()  
 
-  def realQuery(query: String): TryWithZone[RowResultSet] =
-    if mysql_real_query(mysqlPtr, query.c_str(), query.length.toUSize) > 0
+  def realExecuteQuery(query: String): TryWithZone[RowResultSet] =
+    val (scapedQuery, len) = queryScape(query)
+    if mysql_real_query(mysqlPtr, scapedQuery, len) > 0
     then Failure(collectExn("Failed to execute query"))
     else
       val result = mysql_store_result(mysqlPtr)
@@ -96,16 +97,25 @@ class Connection extends Closeable:
       Success(rs)
 
 
-  def realQueryExec(query: String): TryWithZone[Int] =
-    if mysql_real_query(mysqlPtr, query.c_str(), query.length.toUSize) == 0
+  def realExecute(query: String): TryWithZone[Int] =
+    val (scapedQuery, len) = queryScape(query)
+    if mysql_real_query(mysqlPtr, scapedQuery, len) == 0
     then Success(affectedRows())
     else Failure(collectExn("Failed to execute query"))
 
+  private def queryScape(query: String): WithZone[(CString, CUnsignedLongInt)] =
+    val ptr = query.c_str()
+    val len = query.length
+    val scapedSize = 2 * len + 1
+    val chunk = alloc[CChar](scapedSize)
+    val newLen = mysql_real_escape_string(mysqlPtr, chunk, ptr, len.toUInt)
+    (chunk, newLen)
+
+  def lastInsertID: Int =
+    mysql_insert_id(mysqlPtr).toInt
+
   def affectedRows(): Int =
     mysql_affected_rows(mysqlPtr).toInt
-
-  def fieldCount(): Int =
-    mysql_field_count(mysqlPtr).toInt
 
   def setAutoCommit(mode: Boolean): Try[Unit] =
     if mysql_autocommit(mysqlPtr, mode)

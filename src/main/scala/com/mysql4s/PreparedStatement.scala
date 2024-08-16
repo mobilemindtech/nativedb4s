@@ -11,8 +11,8 @@ import scala.scalanative
 import scala.scalanative.unsafe.*
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.{Failure, Success, Try}
-
 import TypeConverter.DoubleConverter
+import com.mysql4s.bindings.enumerations.enum_field_types
 
 //type StmtTypes = String | Int | Long | Short | Double | Float | Boolean | Date
 
@@ -28,12 +28,15 @@ trait PreparedStatement extends AutoCloseable:
   def setBoolean(index: Int, value: Boolean | Null): WithZone[PreparedStatement]
   def setDate(index: Int, value: Date | Null): WithZone[PreparedStatement]
   def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement]
-  def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using TypeConverter[T]): WithZone[PreparedStatement]
+  def setBytes(index: Int, value: Array[Byte] | Null): WithZone[PreparedStatement]
+  def setAs[T <: ScalaTypes](index: Int, value: T | Null): WithZone[PreparedStatement]
   def execute(): TryWithZone[Int]
   def execute(query: String, args: ScalaTypes*): TryWithZone[Int]
   def executeQuery(): TryWithZone[RowResultSet]
   def executeQuery(query: String, args: ScalaTypes*): TryWithZone[RowResultSet]
   def prepare(query: String): TryWithZone[Int]
+  def lastInsertID: Int
+
 
 private[mysql4s] object Statement:
   def collectStmtExn(message: String, stmt: Ptr[MYSQL_STMT]): MySqlException =
@@ -100,7 +103,7 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
   private def paramsCount(): Int =
     mysql_stmt_param_count(stmtPtr).toInt
 
-  override def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using tc: TypeConverter[T]): WithZone[PreparedStatement] =
+  override def setAs[T <: ScalaTypes](index: Int, value: T | Null): WithZone[PreparedStatement] =
     val bind = bindPtr(index)
     bind.length = null
     bind.is_null = null
@@ -109,6 +112,7 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
         val isNull = alloc[CBool]()
         !isNull = true
         bind.is_null = isNull
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_NULL
       case v: String =>
         val lenPtr = alloc[CUnsignedLongInt]()
         val len = v.length.toUInt
@@ -116,34 +120,49 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
         bind.buffer = v.c_str()
         bind.buffer_length = len
         bind.length = lenPtr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_STRING
       case v: Short =>
         val ptr = alloc[CShort]()
         !ptr = v
         bind.buffer = ptr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_SHORT
       case v: Int =>
         val ptr = alloc[CInt]()
         !ptr = v
         bind.buffer = ptr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_LONG
       case v: Long =>
         val ptr = alloc[CLongLong]()
         !ptr = v
         bind.buffer = ptr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_LONGLONG
       case v: Float =>
         val ptr = alloc[CFloat]()
         !ptr = v
         bind.buffer = ptr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_FLOAT
       case v: Double =>
         val ptr = alloc[CDouble]()
         !ptr = v
         bind.buffer = ptr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_DOUBLE
       case v: Boolean =>
         val ptr = alloc[CBool]()
         !ptr = v
         bind.buffer = ptr
-      case _ =>
-        println(s"invalid type $value")
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_TINY
+      case v: Array[Byte] =>
+        println(s"prepare byte array of ${v.length} size")
+        val ptr = alloc[CChar](v.length)
+        for i <- 0 until v.length do
+          ptr(i) = v(i)
 
-    bind.buffer_type = tc.mysqlType
+        bind.buffer = ptr
+        bind.buffer_length = v.length.toUInt
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_BLOB
+      case _ =>
+        throw MySqlException(s"invalid type $value")
+
     this
 
   override def setString(index: Int, value: String | Null): WithZone[PreparedStatement] =
@@ -171,6 +190,12 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
 
   override def setDateTime(index: Int, value: Date | Null): WithZone[PreparedStatement] = ???
 
+  override def setBytes(index: CInt, value: Array[Byte] | Null): WithZone[PreparedStatement] =
+    setAs[Array[Byte]](index, value)
+
+  override def lastInsertID: Int =
+    mysql_stmt_insert_id(stmtPtr).toInt
+
   private def bindValues(values: Seq[ScalaTypes]): WithZone[Unit] =
     for i <- values.indices do
       values(i) match
@@ -181,9 +206,10 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
         case (s: Int) => setAs(i, s)
         case (s: Short) => setAs(i, s)
         case (s: Long) => setAs(i, s)
+        case (s: Array[Byte]) => setAs(i, s)
         //case (s: Date) => throw MySqlException("wrong bind type")
 
-  def bind(): Try[Unit] =
+  private def bind(): Try[Unit] =
     if mysql_stmt_bind_param(stmtPtr, bindPtr)
     then Failure(collectStmtExn("Failed to bind statement", stmtPtr))
     else Success(())

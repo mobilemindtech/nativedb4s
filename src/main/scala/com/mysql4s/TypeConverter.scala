@@ -2,51 +2,52 @@ package com.mysql4s
 
 import com.mysql4s.bindings.enumerations.enum_field_types
 
+import scala.collection.mutable
 import scala.scalanative.libc.stdlib.atof
 import scala.scalanative.unsafe.{CBool, CDouble, CFloat, CInt, CLongLong, CShort, CString, CVoidPtr, Ptr, Tag, alloc}
 
 
 private[mysql4s] trait TypeConverter[SType <: ScalaTypes]:
   type CType <: MysqlTypesPtr
-  def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[SType]
-  def mysqlType: enum_field_types
+  def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[SType]
 
 private[mysql4s] object TypeConverter:
   given StringConverter: TypeConverter[String] with
     type CType = CString
-    def fromNative(str: CVoidPtr, typ: enum_field_types): WithZone[String]  = str.asInstanceOf[CType] |> toStr
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_STRING
+    def fromNative(str: CVoidPtr, typ: enum_field_types, len: Int): WithZone[String]  = str.asInstanceOf[CType] |> toStr
 
   given IntConverter: TypeConverter[Int] with
     type CType = Ptr[CInt]
-    def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[Int] = !v.asInstanceOf[CType]
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_LONG
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Int] = !v.asInstanceOf[CType]
 
   given ShortConverter: TypeConverter[Short] with
     type CType = Ptr[CShort]
-    def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[Short] = !v.asInstanceOf[CType]
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_SHORT
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Short] = !v.asInstanceOf[CType]
 
   given LongConverter: TypeConverter[Long] with
     type CType = Ptr[CLongLong]
-    def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[Long] = !v.asInstanceOf[CType]
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_LONGLONG
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Long] = !v.asInstanceOf[CType]
 
   given FloatConverter: TypeConverter[Float] with
     type CType = Ptr[CFloat]
-    def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[Float] = !v.asInstanceOf[CType]
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_FLOAT
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Float] = !v.asInstanceOf[CType]
 
   given DoubleConverter: TypeConverter[Double] with
     type CType = Ptr[CDouble]
-    def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[Double] =
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Double] =
       if isMysqlDecimal(typ)
       then atof(v.asInstanceOf[CString])
       else !v.asInstanceOf[CType]
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_DOUBLE
 
   given BooleanConverter: TypeConverter[Boolean] with
     type CType = Ptr[CBool]
-    def fromNative(v: CVoidPtr, typ: enum_field_types): WithZone[Boolean] = !v.asInstanceOf[CType]
-    def mysqlType: enum_field_types = enum_field_types.MYSQL_TYPE_TINY
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Boolean] = !v.asInstanceOf[CType]
 
+  given BytesConverter: TypeConverter[Array[Byte]] with
+    type CType = CString
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Array[Byte]] =
+      val bytes = v.asInstanceOf[CString]
+      val array = mutable.ArrayBuffer[Byte]()
+      for i <- 0 until len do
+        array.append(bytes(i))
+      array.toArray  
