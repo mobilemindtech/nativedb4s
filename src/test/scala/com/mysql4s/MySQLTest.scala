@@ -1,13 +1,20 @@
 package com.mysql4s
 
-import org.junit.{Before, After, BeforeClass, AfterClass, Test}
+import org.junit.{After, AfterClass, Before, BeforeClass, Test}
 import org.junit.Assert.*
+
 import scala.compiletime.uninitialized
 import scala.scalanative.unsafe.Zone
 import scala.util.Using.Releasable
 import scala.util.{Failure, Success, Try, Using}
+import MySQLTest.MysqlDateType.*
+import com.mysql4s.MySQLTest.MysqlDateType
+import com.time4s.Date
 
 object MySQLTest:
+
+  enum MysqlDateType:
+    case MTime, MDate, MDateTime, MTimestamp
 
   given zone: Zone = Zone.open()
   var connection: Connection = uninitialized
@@ -22,6 +29,7 @@ object MySQLTest:
     zone.close()
 
 class MySQLTest:
+
 
   import MySQLTest.{connection, given }
 
@@ -47,7 +55,11 @@ class MySQLTest:
         |   double_value double not null,
         |   decimal_value decimal(12,2) not null,
         |   boolean_value boolean not null,
-        |   tiny_blob_value tinyblob not null
+        |   tiny_blob_value tinyblob not null,
+        |   time_value time not null,
+        |   date_value date not null,
+        |   datetime_value datetime not null,
+        |   timestamp_value timestamp not null
         |)
         |""".stripMargin)
 
@@ -65,6 +77,38 @@ class MySQLTest:
       case Some(v) =>
         assertEquals(expected, v)
         null.asInstanceOf[T]
+
+  def assertOptionDate(expected: MyDate, typ: MysqlDateType)(value: Option[Date]): Date =
+    value match
+      case None =>
+        fail(s"$value != $expected")
+        null.asInstanceOf[Date]
+      case Some(date) =>
+
+        typ match
+          case MTime =>
+            assertEquals(expected.getDate.hours, date.hours)
+            assertEquals(expected.getDate.minutes, date.minutes)
+            assertEquals(expected.getDate.seconds, date.seconds)
+          case MDate =>
+            assertEquals(expected.getDate.day, date.day)
+            assertEquals(expected.getDate.month, date.month)
+            assertEquals(expected.getDate.year, date.year)
+          case MDateTime =>
+            assertEquals(expected.getDate.hours, date.hours)
+            assertEquals(expected.getDate.minutes, date.minutes)
+            assertEquals(expected.getDate.seconds, date.seconds)
+            assertEquals(expected.getDate.day, date.day)
+            assertEquals(expected.getDate.month, date.month)
+            assertEquals(expected.getDate.year, date.year)
+          case MTimestamp =>
+            assertEquals(expected.getDate.hours, date.hours)
+            assertEquals(expected.getDate.minutes, date.minutes)
+            assertEquals(expected.getDate.seconds, date.seconds)
+            assertEquals(expected.getDate.day, date.day)
+            assertEquals(expected.getDate.month, date.month)
+            assertEquals(expected.getDate.year, date.year)
+        date
 
   def assertTryOption[T](expected: T)(value: Try[Option[T]]): T =
     value match
@@ -147,6 +191,11 @@ class MySQLTest:
     val decimal_value = 5748754.78
     val boolean_value = true
     val tiny_blob_value = Array[Byte]('A', 'B', 'C', 'D')
+    val time_value = MysqlTime.now
+    val date_value = MysqlDate.now
+    val datetime_value = MysqlDateTime.now
+    val timestamp_value = MysqlTimestamp.now
+
 
     val fields = List(
       "varchar_value",
@@ -163,7 +212,11 @@ class MySQLTest:
       "double_value",
       "decimal_value",
       "boolean_value",
-      "tiny_blob_value")
+      "tiny_blob_value",
+      "time_value",
+      "date_value",
+      "datetime_value",
+      "timestamp_value")
 
     val values = List(
       varchar_value,
@@ -180,7 +233,11 @@ class MySQLTest:
       double_value,
       decimal_value,
       boolean_value,
-      tiny_blob_value)
+      tiny_blob_value,
+      time_value,
+      date_value,
+      datetime_value,
+      timestamp_value)
 
     val mysql = connection
 
@@ -246,6 +303,11 @@ class MySQLTest:
         row.getAs[Boolean](fields(inc)) |> assertOption(values(index))
 
         row.getAs[Array[Byte]](fields(inc)) |> assertOption(values(index)) // binary
+
+        row.getTime(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MTime) // time
+        row.getDate(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MDate) // date
+        row.getDateTime(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MDateTime) // datetime
+        row.getTimestamp(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MTimestamp) // timestamp
     |> ignore
 
   end checkMySqlTypes

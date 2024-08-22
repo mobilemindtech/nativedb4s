@@ -5,7 +5,7 @@ import com.mysql4s.bindings.enumerations.enum_field_types
 import com.mysql4s.bindings.extern_functions.*
 import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TIME}
 
-import java.util.Date
+import com.time4s.Date
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.compiletime.uninitialized
@@ -23,6 +23,10 @@ trait RowResult:
   def getDouble(index: Int | String): WithZone[Option[Double]]
   def getBoolean(index: Int | String): WithZone[Option[Boolean]]
   def getBytes(index: Int | String): WithZone[Option[Array[Byte]]]
+  def getTime(index: Int | String): WithZone[Option[Date]]
+  def getDate(index: Int | String): WithZone[Option[Date]]
+  def getDateTime(index: Int | String): WithZone[Option[Date]]
+  def getTimestamp(index: Int | String): WithZone[Option[Date]]
   def getAs[T <: ScalaTypes](index: Int | String)(using TypeConverter[T]): WithZone[Option[T]]
 
 trait RowResultSet extends AutoCloseable:
@@ -100,20 +104,20 @@ class Result(columns: Seq[Column]) extends RowResult:
   def getBytes(index: Int | String): WithZone[Option[Array[Byte]]] = getAs[Array[Byte]](index)
 
   def getTime(index: Int | String): WithZone[Option[Date]] = getAs[MysqlTime](index) match
-    case null => null
-    case Some(d) => Some(d.toDate)
+    case None => None
+    case Some(d) => Some(d.date)
 
   def getDate(index: Int | String): WithZone[Option[Date]] = getAs[MysqlDate](index) match
-    case null => null
-    case Some(d) => Some(d.toDate)
+    case None => None
+    case Some(d) => Some(d.date)
 
   def getDateTime(index: Int | String): WithZone[Option[Date]] = getAs[MysqlDateTime](index) match
-    case null => null
-    case Some(d) => Some(d.toDate)
+    case None => None
+    case Some(d) => Some(d.date)
 
   def getTimestamp(index: Int | String): WithZone[Option[Date]] = getAs[MysqlTimestamp](index) match
-    case null => null
-    case Some(d) => Some(d.toDate)
+    case None => None
+    case Some(d) => Some(d.date)
 
 class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
 

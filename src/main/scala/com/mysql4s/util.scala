@@ -1,9 +1,9 @@
 package com.mysql4s
 
 import com.mysql4s.bindings.enumerations.enum_field_types
+import com.time4s.Date
 
-import java.util.Date
-import scala.scalanative.unsafe.{CBool, CDouble, CFloat, CInt, CLongLong, CShort, CString, Ptr, Zone, fromCString, toCString}
+import scala.scalanative.unsafe.{CString, Zone, fromCString, toCString}
 import scala.util.Try
 
 extension[A, B] (a: A)
@@ -17,29 +17,29 @@ def toStr(value: CString): String = fromCString(value)
 type WithZone[T] = Zone ?=> T
 type TryWithZone[T] = WithZone[Try[T]]
 
-opaque type MysqlTime = Date | Null
+sealed trait MyDate:
+  def getDate: Date
+case class MysqlTime(date: Date) extends MyDate:
+  override def getDate: Date = date
+case class MysqlDate(date: Date) extends MyDate:
+  override def getDate: Date = date
+case class MysqlDateTime(date: Date) extends MyDate:
+  override def getDate: Date = date
+case class MysqlTimestamp(date: Date) extends MyDate:
+  override def getDate: Date = date
+
 object MysqlTime:
-  def apply(d: Date): MysqlTime = d
-  extension (d: MysqlTime)
-    def toDate: Date = d
+  def now: Zone ?=> MysqlTime = MysqlTime(Date.now)
 
-opaque type MysqlDate = Date | Null
 object MysqlDate:
-  def apply(d: Date): MysqlDate = d
-  extension (d: MysqlDate)
-    def toDate: Date = d
+  def now: Zone ?=> MysqlDate = MysqlDate(Date.now)
 
-opaque type MysqlDateTime = Date | Null
 object MysqlDateTime:
-  def apply(d: Date): MysqlDateTime = d
-  extension (d: MysqlDateTime)
-    def toDate: Date = d
+  def now: Zone ?=> MysqlDateTime = MysqlDateTime(Date.now)
 
-opaque type MysqlTimestamp = Date | Null
 object MysqlTimestamp:
-  def apply(d: Date): MysqlTimestamp = d
-  extension (d: MysqlTimestamp)
-    def toDate: Date = d
+  def now: Zone ?=> MysqlTimestamp = MysqlTimestamp(Date.now)
+
 
 private[mysql4s] def isMysqlString(typ: enum_field_types): Boolean =
   typ match
@@ -63,7 +63,7 @@ private[mysql4s] def isMysqlDecimal(typ: enum_field_types): Boolean =
 
 
 type ScalaTypes = String | Int | Short | Long | Float | Double | Boolean | Array[Byte] | MysqlDate | MysqlTime | MysqlDateTime | MysqlTimestamp
-type MysqlTypesPtr = CString | Ptr[CInt] | Ptr[CShort] | Ptr[CLongLong] | Ptr[CFloat] | Ptr[CDouble] | Ptr[CBool]
+
 
 extension (x: Any)
   inline def discard: Unit = ()

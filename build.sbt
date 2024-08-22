@@ -26,7 +26,8 @@ scalacOptions ++= Seq(
   "-deprecation",
   "-explain",
   "-explain-cyclic",
-  "-rewrite"
+  "-rewrite",
+  "-source 3.6"
 )
 
 lazy val root = project.in(file(".")).
