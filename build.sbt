@@ -6,7 +6,7 @@ import bindgen.interface.Binding
 import bindgen.plugin.BindgenMode
 import com.indoorvivants.detective.Platform
 
-scalaVersion := "3.5.0-RC7"
+scalaVersion := "3.5.1-RC2"
 name := "mysql4s"
 organization := "com.mysql4s"
 
@@ -27,7 +27,9 @@ scalacOptions ++= Seq(
   "-explain",
   "-explain-cyclic",
   "-rewrite",
-  "-source 3.6"
+  //"-source:3.6",
+  "-source:future",
+  "-language:experimental.modularity"
 )
 
 lazy val root = project.in(file(".")).
@@ -57,7 +59,7 @@ lazy val root = project.in(file(".")).
         //  )
         //)
         .withSourceLevelDebuggingConfig(_.enableAll) // enable generation of debug informations
-        .withOptimize(true)  // disable Scala Native optimizer
+        .withOptimize(false)  // disable Scala Native optimizer
         .withMode(scalanative.build.Mode.debug) // compile using LLVM without optimizations
         .withCompileOptions(c.compileOptions ++ Seq("-g"))
     },
@@ -165,5 +167,7 @@ def configurePlatform(rename: String => String = identity) = Seq(
 )
 
 addCommandAlias("run", "appStart")
+
+ThisBuild/usePipelining := true
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-s", "-v")

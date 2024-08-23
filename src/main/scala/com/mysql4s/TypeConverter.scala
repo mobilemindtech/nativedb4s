@@ -16,6 +16,7 @@ private[mysql4s] trait TypeConverter[SType <: ScalaTypes]:
   def bindValue(v: SType, bind: MYSQL_BIND): WithZone[Unit]
 
 private[mysql4s] object TypeConverter:
+
   given StringConverter: TypeConverter[String] with
     def fromNative(str: CVoidPtr, typ: enum_field_types, len: Int): WithZone[String]  = str.asInstanceOf[CString] |> toStr
     def bindValue(v: String, bind: MYSQL_BIND): WithZone[Unit] =
@@ -26,7 +27,6 @@ private[mysql4s] object TypeConverter:
       bind.buffer_length = len
       bind.length = lenPtr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_STRING
-
 
   given IntConverter: TypeConverter[Int] with
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Int] = !v.asInstanceOf[Ptr[CInt]]
@@ -64,7 +64,7 @@ private[mysql4s] object TypeConverter:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Double] =
       if isMysqlDecimal(typ)
       then atof(v.asInstanceOf[CString])
-      else !v.asInstanceOf[CString]
+      else !v.asInstanceOf[Ptr[CDouble]]
 
     def bindValue(v: Double, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[CDouble]()
@@ -118,8 +118,8 @@ private[mysql4s] object TypeConverter:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlDate] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()
-      tmPtr(0).year_=(timePtr(0).year.toInt)
-      tmPtr(0).month_=(timePtr(0).month.toInt)
+      tmPtr(0).year_=(timePtr(0).year.toInt - 1900)
+      tmPtr(0).month_=(timePtr(0).month.toInt - 1)
       tmPtr(0).day_=(timePtr(0).day.toInt)
       MysqlDate(Date(tmPtr))
 
@@ -135,8 +135,8 @@ private[mysql4s] object TypeConverter:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlDateTime] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()
-      tmPtr(0).year_=(timePtr(0).year.toInt)
-      tmPtr(0).month_=(timePtr(0).month.toInt)
+      tmPtr(0).year_=(timePtr(0).year.toInt - 1900)
+      tmPtr(0).month_=(timePtr(0).month.toInt - 1)
       tmPtr(0).day_=(timePtr(0).day.toInt)
       tmPtr(0).hour_=(timePtr(0).hour.toInt)
       tmPtr(0).minute_=(timePtr(0).minute.toInt)
@@ -158,8 +158,8 @@ private[mysql4s] object TypeConverter:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlTimestamp] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()
-      tmPtr(0).year_=(timePtr(0).year.toInt)
-      tmPtr(0).month_=(timePtr(0).month.toInt)
+      tmPtr(0).year_=(timePtr(0).year.toInt - 1900)
+      tmPtr(0).month_=(timePtr(0).month.toInt - 1)
       tmPtr(0).day_=(timePtr(0).day.toInt)
       tmPtr(0).hour_=(timePtr(0).hour.toInt)
       tmPtr(0).minute_=(timePtr(0).minute.toInt)

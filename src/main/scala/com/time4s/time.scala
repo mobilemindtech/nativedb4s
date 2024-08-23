@@ -3,7 +3,7 @@ package com.time4s
 import com.time4s.TIME.*
 
 import scala.scalanative.posix.time
-import scala.scalanative.posix.time.{gmtime, localtime, mktime, time_t, tm}
+import scala.scalanative.posix.time.{localtime, mktime, time_t, tm}
 import scala.scalanative.unsafe.{CInt, Ptr, Tag, UnsafeRichLong, Zone, alloc, extern}
 
 
@@ -67,7 +67,8 @@ object Date:
   def apply(mills: Long): Zone ?=> Date =
     val rawtime = alloc[time_t]()
     !rawtime =  if mills > 0 then (mills / 1000).toSize else 0.toSize
-    if mills == 0 then time.time(rawtime)
+    if mills == 0 then
+      val _ = time.time(rawtime)
     val ptm = localtime(rawtime)
     Date(ptm)
 

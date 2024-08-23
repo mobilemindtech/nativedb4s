@@ -245,7 +245,6 @@ private[mysql4s] class Statement(mysql: Connection) extends PreparedStatement:
     mysql_stmt_insert_id(stmtPtr).toInt
 
   private def bindValues(values: Seq[ScalaTypes]): WithZone[Unit] =
-    println(s"bindValues ${values.length}")
     for i <- values.indices do
       values(i) match
         case s: String => setAs[String](i, s)

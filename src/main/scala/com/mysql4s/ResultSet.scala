@@ -203,13 +203,12 @@ class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
               ptr = valPtr))
 
         currRowIndex += 1
-        Result(cols.toSeq) |> Some |> Success
+        Result(cols.toSeq) |> Some.apply |> Success.apply
       case 100 => // MYSQL_NO_DATA
         Success(None)
       case 1 =>
         Failure(collectStmtExn("Failed to get statement result metadata", stmtPtr))
       case v =>
-        println(s"result?=$v, ${collectStmtExn("Failed to store statement result", stmtPtr)}")
         Failure(collectStmtExn("Failed to fetch statement", stmtPtr))
 
   private def allocColumnString(col: Column): WithZone[CVoidPtr] =
@@ -227,7 +226,6 @@ class StmtResultSet(stmtPtr: Ptr[MYSQL_STMT]) extends RowResultSet:
     val realLen = lengthPtr(col.index).toInt
     val buffer = alloc[CChar](realLen)
     val bind = bindsPtr + col.index
-    println(s"allocColumnBytes ${col.name} len = ${realLen}")
     (!bind).buffer = buffer
     (!bind).buffer_length = realLen.toUInt
     if mysql_stmt_fetch_column(stmtPtr, bind, col.index.toUInt, 0.toUInt) > 0
@@ -366,7 +364,7 @@ class ResultSet(resPtr: Ptr[MYSQL_RES]) extends RowResultSet:
           ptr = valPtr))
 
     currRowIndex += 1
-    Result(cols.toSeq) |> Some |> Success
+    Result(cols.toSeq) |> Some.apply |> Success.apply
 
   override def close(): Unit =
     if resPtr != null then mysql_free_result(resPtr)

@@ -63,16 +63,13 @@ class MySQLTest:
         |)
         |""".stripMargin)
 
-  def assertT[T](expected: T)(value: T) =
-    assertEquals(expected, value)
-
   def assertOption[T](expected: T)(value: Option[T]): T =
     value match
       case None =>
         fail(s"$value != $expected")
         null.asInstanceOf[T]
       case Some(v: Array[Byte]) =>
-        assertArrayEquals(expected.asInstanceOf[Array[Byte]], v)
+        assertArrayEquals(expected.asInstanceOf[Array[Byte]], v.asInstanceOf[Array[Byte]])
         null.asInstanceOf[T]
       case Some(v) =>
         assertEquals(expected, v)
@@ -87,27 +84,27 @@ class MySQLTest:
 
         typ match
           case MTime =>
-            assertEquals(expected.getDate.hours, date.hours)
-            assertEquals(expected.getDate.minutes, date.minutes)
-            assertEquals(expected.getDate.seconds, date.seconds)
+            assertEquals("assert hours",expected.getDate.hours, date.hours)
+            assertEquals("assert minutes",expected.getDate.minutes, date.minutes)
+            assertEquals("assert seconds",expected.getDate.seconds, date.seconds)
           case MDate =>
-            assertEquals(expected.getDate.day, date.day)
-            assertEquals(expected.getDate.month, date.month)
-            assertEquals(expected.getDate.year, date.year)
+            assertEquals("assert day",expected.getDate.day, date.day)
+            assertEquals("assert month",expected.getDate.month, date.month)
+            assertEquals("assert year",expected.getDate.year, date.year)
           case MDateTime =>
-            assertEquals(expected.getDate.hours, date.hours)
-            assertEquals(expected.getDate.minutes, date.minutes)
-            assertEquals(expected.getDate.seconds, date.seconds)
-            assertEquals(expected.getDate.day, date.day)
-            assertEquals(expected.getDate.month, date.month)
-            assertEquals(expected.getDate.year, date.year)
+            assertEquals("assert hours",expected.getDate.hours, date.hours)
+            assertEquals("assert minutes",expected.getDate.minutes, date.minutes)
+            assertEquals("assert seconds",expected.getDate.seconds, date.seconds)
+            assertEquals("assert day",expected.getDate.day, date.day)
+            assertEquals("assert month",expected.getDate.month, date.month)
+            assertEquals("assert year",expected.getDate.year, date.year)
           case MTimestamp =>
-            assertEquals(expected.getDate.hours, date.hours)
-            assertEquals(expected.getDate.minutes, date.minutes)
-            assertEquals(expected.getDate.seconds, date.seconds)
-            assertEquals(expected.getDate.day, date.day)
-            assertEquals(expected.getDate.month, date.month)
-            assertEquals(expected.getDate.year, date.year)
+            assertEquals("assert hours", expected.getDate.hours, date.hours)
+            assertEquals("assert minutes", expected.getDate.minutes, date.minutes)
+            assertEquals("assert seconds", expected.getDate.seconds, date.seconds)
+            assertEquals("assert day", expected.getDate.day, date.day)
+            assertEquals("assert month", expected.getDate.month, date.month)
+            assertEquals("assert year", expected.getDate.year, date.year)
         date
 
   def assertTryOption[T](expected: T)(value: Try[Option[T]]): T =
@@ -257,28 +254,21 @@ class MySQLTest:
         |WHERE id = ?
         |""".stripMargin)
 
-    usingTry(stmt):
+    val _ = usingTry(stmt):
       prepared =>
-        val rs =
+        val rs: RowResultSet =
           prepared
             .setAs(0, 1)
             .executeQuery() |> assertSuccess
+
+        //rs.foreach(_.getString("first_name") |> println)
+
         val row = rs.first |> assertOptionSuccess
 
         val lastID = prepared.lastInsertID
         
         assert(lastID > 0)
 
-        //val fields = List(
-        // "varchar_value",
-        // "char_value",
-        // "tiny_int_value",
-        // "small_int_value",
-        // "int_value",
-        // "bigint_value",
-        // "float_value",
-        // "double_value",
-        // "decimal_value")
         var index = 0
         def inc: Int =
           index = index + 1
@@ -308,7 +298,6 @@ class MySQLTest:
         row.getDate(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MDate) // date
         row.getDateTime(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MDateTime) // datetime
         row.getTimestamp(fields(inc)) |> assertOptionDate(values(index).asInstanceOf[MyDate], MTimestamp) // timestamp
-    |> ignore
 
   end checkMySqlTypes
 
