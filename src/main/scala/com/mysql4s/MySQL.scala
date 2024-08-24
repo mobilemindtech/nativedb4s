@@ -2,6 +2,8 @@ package com.mysql4s
 
 import com.mysql4s.bindings.extern_functions.*
 import com.mysql4s.bindings.structs.*
+import com.mysql4s.rs.{ResultSet, RowResultSet}
+import com.mysql4s.stmt.{PreparedStatement, PreparedStatementImpl}
 
 import java.io.Closeable
 import scala.compiletime.uninitialized
@@ -63,21 +65,21 @@ class Connection extends Closeable:
         else Success(())
 
   def prepare(query: String): TryWithZone[PreparedStatement] =
-    val stmt = new Statement(this)
+    val stmt = new PreparedStatementImpl(this)
     for
       _ <- stmt.init()
       _ <- stmt.prepare(query)
     yield stmt
 
   def executeQuery(query: String, args: ScalaTypes*): TryWithZone[RowResultSet] =
-    val stmt = new Statement(this)
+    val stmt = new PreparedStatementImpl(this)
     for
       _ <- stmt.init()
       rows <- stmt.executeQuery(query, args *)
     yield rows
 
   def execute(query: String, args: ScalaTypes*): TryWithZone[Int] =
-    val stmt = new Statement(this)
+    val stmt = new PreparedStatementImpl(this)
     try
       for 
         _ <- stmt.init()
@@ -95,7 +97,6 @@ class Connection extends Closeable:
       val rs = new ResultSet(result)
       rs.init()
       Success(rs)
-
 
   def realExecute(query: String): TryWithZone[Int] =
     val (scapedQuery, len) = queryScape(query)

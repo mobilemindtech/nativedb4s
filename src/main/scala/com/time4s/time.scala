@@ -42,6 +42,9 @@ object TIME:
     def isdst: CInt = struct._9
     def isdst_=(value: CInt): Unit = !struct.at9 = value
 
+@extern
+object util:
+  def time_offset(): Int = extern
 
 class Date(tmPtr: Ptr[tm]):
   val day: Int = tmPtr(0).day
@@ -55,10 +58,6 @@ class Date(tmPtr: Ptr[tm]):
   val yearDay: Int = tmPtr(0).yearDay + 1
   def toDate: java.util.Date = new java.util.Date(millisec)
   def timeOffset: Int = util.time_offset()
-
-@extern
-object util:
-  def time_offset(): Int = extern
 
 object Date:
   def apply(dt: java.util.Date): Zone ?=> Date =

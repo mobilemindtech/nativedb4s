@@ -1,9 +1,12 @@
 package com.mysql4s
 
+import com.mysql4s.MySqlException.exn
 import com.mysql4s.bindings.enumerations.enum_field_types
+import com.mysql4s.bindings.extern_functions.{mysql_stmt_errno, mysql_stmt_error}
+import com.mysql4s.bindings.structs.MYSQL_STMT
 import com.time4s.Date
 
-import scala.scalanative.unsafe.{CString, Zone, fromCString, toCString}
+import scala.scalanative.unsafe.{CString, Ptr, Zone, fromCString, toCString}
 import scala.util.Try
 
 extension[A, B] (a: A)
@@ -70,3 +73,8 @@ extension (x: Any)
 
 def ignore[T](a: => T): Unit =
   val _ = a
+
+private[mysql4s]  def collectStmtExn(message: String, stmt: Ptr[MYSQL_STMT]): MySqlException =
+  val code = mysql_stmt_errno(stmt)
+  val error = mysql_stmt_error(stmt)
+  exn(s"$message. Error: ${toStr(error)}", code.toInt)

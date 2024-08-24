@@ -1,15 +1,16 @@
-package com.mysql4s
+package com.mysql4s.types
 
 import com.mysql4s.bindings.enumerations.enum_field_types
 import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_TIME}
+import com.mysql4s.{MysqlDate, MysqlDateTime, MysqlTime, MysqlTimestamp, ScalaTypes, WithZone, c_str, isMysqlDecimal, |>, toStr}
+import com.time4s.Date
+import com.time4s.TIME.*
 
 import scala.collection.mutable
 import scala.scalanative.libc.stdlib.atof
 import scala.scalanative.posix.time.tm
 import scala.scalanative.unsafe.{CBool, CChar, CDouble, CFloat, CInt, CLongLong, CShort, CString, CUnsignedLongInt, CVoidPtr, Ptr, Tag, alloc}
 import scala.scalanative.unsigned.UnsignedRichInt
-import com.time4s.TIME.*
-import com.time4s.Date
 
 private[mysql4s] trait TypeConverter[SType <: ScalaTypes]:
   def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[SType]
@@ -17,7 +18,7 @@ private[mysql4s] trait TypeConverter[SType <: ScalaTypes]:
 
 private[mysql4s] object TypeConverter:
 
-  given StringConverter: TypeConverter[String] with
+  given TypeConverter[String]:
     def fromNative(str: CVoidPtr, typ: enum_field_types, len: Int): WithZone[String]  = str.asInstanceOf[CString] |> toStr
     def bindValue(v: String, bind: MYSQL_BIND): WithZone[Unit] =
       val lenPtr = alloc[CUnsignedLongInt]()
@@ -28,7 +29,7 @@ private[mysql4s] object TypeConverter:
       bind.length = lenPtr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_STRING
 
-  given IntConverter: TypeConverter[Int] with
+  given TypeConverter[Int]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Int] = !v.asInstanceOf[Ptr[CInt]]
     def bindValue(v: Int, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[CInt]()
@@ -36,7 +37,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_LONG
 
-  given ShortConverter: TypeConverter[Short] with
+  given TypeConverter[Short]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Short] = !v.asInstanceOf[Ptr[CShort]]
     def bindValue(v: Short, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[CShort]()
@@ -44,7 +45,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_SHORT
 
-  given LongConverter: TypeConverter[Long] with
+  given TypeConverter[Long]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Long] = !v.asInstanceOf[Ptr[CLongLong]]
     def bindValue(v: Long, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[CLongLong]()
@@ -52,7 +53,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_LONGLONG
 
-  given FloatConverter: TypeConverter[Float] with
+  given TypeConverter[Float]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Float] = !v.asInstanceOf[Ptr[CFloat]]
     def bindValue(v: Float, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[CFloat]()
@@ -60,7 +61,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_FLOAT
 
-  given DoubleConverter: TypeConverter[Double] with
+  given TypeConverter[Double]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Double] =
       if isMysqlDecimal(typ)
       then atof(v.asInstanceOf[CString])
@@ -72,7 +73,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_DOUBLE
 
-  given BooleanConverter: TypeConverter[Boolean] with
+  given TypeConverter[Boolean]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Boolean] = !v.asInstanceOf[Ptr[CBool]]
 
     def bindValue(v: Boolean, bind: MYSQL_BIND): WithZone[Unit] =
@@ -81,7 +82,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_TINY
 
-  given BytesConverter: TypeConverter[Array[Byte]] with
+  given TypeConverter[Array[Byte]]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[Array[Byte]] =
       val bytes = v.asInstanceOf[CString]
       val array = mutable.ArrayBuffer[Byte]()
@@ -97,7 +98,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer_length = v.length.toUInt
       bind.buffer_type = enum_field_types.MYSQL_TYPE_BLOB
 
-  given TimeConverter: TypeConverter[MysqlTime] with
+  given TypeConverter[MysqlTime]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlTime] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()
@@ -114,7 +115,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_TIME
 
-  given DateConverter: TypeConverter[MysqlDate] with
+  given TypeConverter[MysqlDate]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlDate] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()
@@ -131,7 +132,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_DATE
 
-  given DateTimeConverter: TypeConverter[MysqlDateTime] with
+  given TypeConverter[MysqlDateTime]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlDateTime] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()
@@ -154,7 +155,7 @@ private[mysql4s] object TypeConverter:
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_DATETIME
 
-  given TimestampConverter: TypeConverter[MysqlTimestamp] with
+  given TypeConverter[MysqlTimestamp]:
     def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlTimestamp] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
       val tmPtr = alloc[tm]()

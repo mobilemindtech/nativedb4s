@@ -6,7 +6,7 @@ import bindgen.interface.Binding
 import bindgen.plugin.BindgenMode
 import com.indoorvivants.detective.Platform
 
-scalaVersion := "3.5.1-RC2"
+scalaVersion := "3.5.0"
 name := "mysql4s"
 organization := "com.mysql4s"
 

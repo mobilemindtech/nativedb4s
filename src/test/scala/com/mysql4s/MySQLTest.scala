@@ -3,12 +3,14 @@ package com.mysql4s
 import org.junit.{After, AfterClass, Before, BeforeClass, Test}
 import org.junit.Assert.*
 
-import scala.compiletime.uninitialized
+import scala.compiletime.{asMatchable, uninitialized}
 import scala.scalanative.unsafe.Zone
 import scala.util.Using.Releasable
 import scala.util.{Failure, Success, Try, Using}
 import MySQLTest.MysqlDateType.*
 import com.mysql4s.MySQLTest.MysqlDateType
+import com.mysql4s.rs.RowResultSet
+import com.mysql4s.stmt.PreparedStatement
 import com.time4s.Date
 
 object MySQLTest:
@@ -63,7 +65,7 @@ class MySQLTest:
         |)
         |""".stripMargin)
 
-  def assertOption[T](expected: T)(value: Option[T]): T =
+  def assertOption[T <: Matchable](expected: T)(value: Option[T]): T =
     value match
       case None =>
         fail(s"$value != $expected")
@@ -238,12 +240,25 @@ class MySQLTest:
 
     val mysql = connection
 
-    mysql.execute(
+    for _ <- 0 until 5 do
+      mysql.execute(
+        s"""
+           |INSERT INTO mysql_types
+           |   (${fields.mkString(", ")})
+           |   values (${fields.map(_ => "?").mkString(", ")})
+           |""".stripMargin, values *) |> assertTry(1)
+
+    val stmtAll = mysql.executeQuery(
       s"""
-         |INSERT INTO mysql_types
-         |   (${fields.mkString(", ")})
-         |   values (${fields.map(_ => "?").mkString(", ")})
-         |""".stripMargin, values *) |> assertTry(1)
+         |SELECT
+         |   id, ${fields.mkString(", ")}
+         |FROM
+         |   mysql_types
+         |""".stripMargin
+    )
+    usingTry(stmtAll):
+      rs =>
+        assertEquals(5, rs.count)
 
     val stmt = mysql.prepare(
       s"""
@@ -254,20 +269,20 @@ class MySQLTest:
         |WHERE id = ?
         |""".stripMargin)
 
+    val lastID = mysql.lastInsertID
+
+    assert(lastID > 0)
+
     val _ = usingTry(stmt):
       prepared =>
-        val rs: RowResultSet =
+        val rs =
           prepared
-            .setAs(0, 1)
+            .setAs(0, lastID)
             .executeQuery() |> assertSuccess
 
-        //rs.foreach(_.getString("first_name") |> println)
+        rs.foreach(_.getString("varchar_value") |> println)
 
         val row = rs.first |> assertOptionSuccess
-
-        val lastID = prepared.lastInsertID
-        
-        assert(lastID > 0)
 
         var index = 0
         def inc: Int =
