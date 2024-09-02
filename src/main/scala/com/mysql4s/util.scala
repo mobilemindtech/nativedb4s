@@ -5,9 +5,11 @@ import com.mysql4s.bindings.enumerations.enum_field_types
 import com.mysql4s.bindings.extern_functions.{mysql_stmt_errno, mysql_stmt_error}
 import com.mysql4s.bindings.structs.MYSQL_STMT
 import com.time4s.Date
-
+import scala.util.Using.Releasable
 import scala.scalanative.unsafe.{CString, Ptr, Zone, fromCString, toCString}
 import scala.util.Try
+import scala.util.Failure
+import scala.util.Success
 
 extension[A, B] (a: A)
   infix def |>(f: A => B): B = f(a)
@@ -78,3 +80,21 @@ private[mysql4s]  def collectStmtExn(message: String, stmt: Ptr[MYSQL_STMT]): My
   val code = mysql_stmt_errno(stmt)
   val error = mysql_stmt_error(stmt)
   exn(s"$message. Error: ${toStr(error)}", code.toInt)
+
+def UsingTryInOut[R : Releasable, A](res: Try[R])(f: R => Try[A])(using releasable: Releasable[R]): Try[A] =
+  res match
+    case Success(r) =>  
+      try
+        f(r)
+      finally
+        releasable.release(r)
+    case Failure(exception) => Failure(exception)  
+
+def UsingTryOut[R : Releasable, A](res: R)(f: R => Try[A])(using releasable: Releasable[R]): Try[A] =
+  try
+    f(res)
+  finally
+    releasable.release(res)
+
+
+  

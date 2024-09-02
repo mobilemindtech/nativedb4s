@@ -1,17 +1,10 @@
 package com.mysql4s.stmt
 
-import com.mysql4s.MySqlException.exn
-import com.mysql4s.bindings.enumerations.enum_field_types
-import com.mysql4s.bindings.extern_functions.*
-import com.mysql4s.bindings.structs.*
 import com.mysql4s.*
 import com.mysql4s.rs.RowResultSet
 import com.mysql4s.types.TypeConverter
 
-import scala.compiletime.uninitialized
 import scala.scalanative.unsafe.*
-import scala.scalanative.unsigned.UnsignedRichInt
-import scala.util.{Failure, Success, Try}
 
 
 type ZoneUnit = Zone ?=> Unit

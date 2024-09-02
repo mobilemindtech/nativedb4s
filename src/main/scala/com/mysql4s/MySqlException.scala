@@ -1,5 +1,11 @@
 package com.mysql4s
 
+/**
+  * MySQL Exception
+  *
+  * @param message
+  * @param code
+  */
 class MySqlException(message: String, val code: Int) extends Exception(message)
 
 object MySqlException:

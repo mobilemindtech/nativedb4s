@@ -11,6 +11,7 @@ import scala.scalanative.unsafe.{CBool, CDouble, CInt, CLongLong, CShort, CVoidP
 import scala.scalanative.unsigned.UnsignedRichInt
 import scala.util.Success
 
+
 class ResultSet(resPtr: Ptr[MYSQL_RES]) extends RowResultSet:
 
   private var numFields: Int = 0
@@ -18,7 +19,7 @@ class ResultSet(resPtr: Ptr[MYSQL_RES]) extends RowResultSet:
   private var currRowIndex = 0
   private val columns = mutable.ListBuffer[Column]()
 
-  //https://github.com/brianmario/mysql2/blob/master/ext/mysql2/result.c
+  
   def init(): Unit =
     numRows = mysql_num_rows(resPtr).toInt
     numFields = mysql_num_fields(resPtr).toInt

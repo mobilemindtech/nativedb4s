@@ -9,8 +9,6 @@ import scala.util.Using.Releasable
 import scala.util.{Failure, Success, Try, Using}
 import MySQLTest.MysqlDateType.*
 import com.mysql4s.MySQLTest.MysqlDateType
-import com.mysql4s.rs.RowResultSet
-import com.mysql4s.stmt.PreparedStatement
 import com.time4s.Date
 
 object MySQLTest:
@@ -256,10 +254,32 @@ class MySQLTest:
          |   mysql_types
          |""".stripMargin
     )
-    usingTry(stmtAll):
-      rs =>
-        assertEquals(5, rs.count)
+    usingTry(stmtAll)(rs => assertEquals(5, rs.count))
+      
+    val seqRows =
+      mysql.rows(
+        s"""
+          |SELECT
+          |   id, ${fields.mkString(", ")}
+          |FROM
+          |   mysql_types
+          |""".stripMargin
+      )
+  
+    assertTry(5)(seqRows.map(_.size))
 
+    mysql.firstRow(
+      s"""
+        |SELECT
+        |   id, ${fields.mkString(", ")}
+        |FROM
+        |   mysql_types
+        |""".stripMargin
+    ) match      
+      case Success(Some(row)) => 
+          row.getString("varchar_value") |> assertOption(varchar_value)
+      case _ => fail("row expected")
+        
     val stmt = mysql.prepare(
       s"""
         |SELECT
