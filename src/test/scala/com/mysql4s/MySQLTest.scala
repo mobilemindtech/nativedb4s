@@ -268,6 +268,7 @@ class MySQLTest:
   
     assertTry(5)(seqRows.map(_.size))
 
+    mysql.firstRow("")
     mysql.firstRow(
       s"""
         |SELECT
