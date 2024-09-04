@@ -88,7 +88,16 @@ def UsingTryInOut[R : Releasable, A](res: Try[R])(f: R => Try[A])(using releasab
         f(r)
       finally
         releasable.release(r)
-    case Failure(exception) => Failure(exception)  
+    case Failure(exception) => Failure(exception)
+
+def UsingTryIn[R: Releasable, A](res: Try[R])(f: R => A)(using releasable: Releasable[R]): A =
+  res match
+    case Success(r) =>
+      try
+        f(r)
+      finally
+        releasable.release(r)
+    case Failure(exception) => throw exception
 
 def UsingTryOut[R : Releasable, A](res: R)(f: R => Try[A])(using releasable: Releasable[R]): Try[A] =
   try

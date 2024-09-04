@@ -15,8 +15,8 @@ import scala.util.{Failure, Success, Try}
 import com.mysql4s.rs.RowResult
 
 import scala.util.Using
-
-type CanThrowZone[T] = Zone ?=> CanThrow[MySqlException] ?=> T
+//?=> CanThrow[MySqlException]
+type CanThrowZone[T] = Zone  ?=> T
 
 object MySQL:
   /**

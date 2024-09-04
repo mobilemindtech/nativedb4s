@@ -1,34 +1,39 @@
 # mysql4s
 Scala Native MySQL
 
+### Example
+
 ```scala 3
 import com.mysql4s.*
 
-val connection = MySQL.connectExn("127.0.0.1", "user", "passwd", "mydb")
+import scala.scalanative.unsafe.Zone
+import scala.util.{Failure, Success, Try}
 
-mysql.execute("""
-    |create table users(
-    |   id int auto_increment primary key, 
-    |   name varchar(50),
-    |   username varchar(50)
-    |)""".stripMargin)
+extension [T](op: Option[T])
+  def toTry: Try[T] = op match
+    case Some(value) => Success(value)
+    case None => Failure(Exception("none"))
 
-mysql.execute(
-  """
-    |insert into mytable (name, username) values (?, ?)
-    |""".stripMargin, "Ricardo", "ricardo@mobilemind")
-
-def printRow(row: Row) =
-  println(s"id=${it.getInt("id").get}, name=${it.getString("name").get}, username=${it.getString("username").get}")  
-
-val lastID = mysql.lastInsertID
-val rows = mysql.executeQuery("select name, username from users").get
-rows.foreach(printRow)
-
-val row = mysql.firstRow("select name, username from users where id = ?", lastID).get.get
-printRow(row)
-
-rows.close()
-connection.close()
+@main def main(): Unit =
+    val _ =
+      Zone:
+        UsingTryIn(MySQL.connect("127.0.0.1", "test", "test", "test")):
+          conn =>
+            for
+              _ <- conn.execute("drop table if exists users")
+              _ <- conn.execute("""
+                  |create table users(
+                  |   id int auto_increment primary key,
+                  |   name varchar(50),
+                  |   username varchar(50)
+                  |)""".stripMargin)
+              _ <- conn.execute(
+                "insert into users (name, username) values (?, ?)", "Ricardo", "ricardo@mobilemind")
+              rows <- conn.rows("select name, username from users")
+              row <- conn.firstRow("select name, username from users where id = ?", conn.lastInsertID)
+              name <- row.toTry.map(_.getString("name"))
+              _ = println(s"count=${rows.size}, name=${name}")
+              _ = conn.close()
+            yield ()
 
 ```
