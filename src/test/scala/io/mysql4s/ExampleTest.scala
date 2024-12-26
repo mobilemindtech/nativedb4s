@@ -1,4 +1,4 @@
-package com.mysql4s
+package io.mysql4s
 
 import org.junit.Test
 import org.junit.Assert.*
@@ -38,7 +38,6 @@ class ExampleTest:
               rows <- conn.rows("select name, username from users")
               _ = assertEquals("expect 1 row", 1, rows.size)
               _ = assertEquals("expect ricardo", Some("Ricardo"), name)
-              _ = conn.close()
             yield ()
     result match
       case Failure(exception) => fail(exception.getMessage)

@@ -1,22 +1,26 @@
-package com.mysql4s
+package io.mysql4s
 
-import com.mysql4s.bindings.extern_functions.*
-import com.mysql4s.bindings.structs.*
-import com.mysql4s.rs.{ResultSet, RowResultSet}
-import com.mysql4s.stmt.{PreparedStatement, PreparedStatementImpl}
+import io.mysql4s.bindings.extern_functions.*
+import io.mysql4s.bindings.structs.*
+import io.mysql4s.rs.{ResultSet, RowResult, RowResultSet}
+import io.mysql4s.stmt.{PreparedStatement, PreparedStatementImpl}
 
 import java.io.Closeable
 import scala.compiletime.uninitialized
 import scala.scalanative
 import scala.scalanative.unsafe
-import scala.scalanative.unsafe.{CChar, CString, CUnsignedLongInt, Ptr, Zone, alloc}
+import scala.scalanative.unsafe.{
+  CChar,
+  CString,
+  CUnsignedLongInt,
+  Ptr,
+  Zone,
+  alloc
+}
 import scala.scalanative.unsigned.UnsignedRichInt
-import scala.util.{Failure, Success, Try}
-import com.mysql4s.rs.RowResult
-
-import scala.util.Using
+import scala.util.{Failure, Success, Try, Using}
 //?=> CanThrow[MySqlException]
-type CanThrowZone[T] = Zone  ?=> T
+type CanThrowWithZone[T] = Zone  ?=> T
 
 object MySQL:
   /**
@@ -49,32 +53,14 @@ object MySQL:
     * @param port
     * @return A closeable MySQL connection or throw a exception
     */
-  def connectExn(host: String,
+  def unsafeConnect(host: String,
                  user: String,
                  password: String,
                  database: String,
-                 port: Int = 3306): CanThrowZone[ConnectionExn] =
+                 port: Int = 3306): CanThrowWithZone[Connection] =
     connect(host, user, password, database, port) match
-      case Success(mysql) => ConnectionExn(mysql)
+      case Success(conn) => conn
       case Failure(err) => throw err
-
-class ConnectionExn(conn: Connection) extends Closeable:
-
-  private def unwrap[T](t: Try[T]): CanThrowZone[T] = t match
-    case Failure(exception) => throw exception
-    case Success(value) => value
-
-  def prepare(query: String): CanThrowZone[PreparedStatement] =
-    conn.prepare(query) |> unwrap
-
-  def executeQuery(query: String, args: ScalaTypes*): CanThrowZone[RowResultSet] =
-    conn.executeQuery(query, args *) |> unwrap
-
-  def rows(query: String, args: ScalaTypes*): CanThrowZone[Seq[RowResult]] =
-    conn.rows(query, args*) |> unwrap
-
-  def close(): Unit =
-    conn.close()
 
 /**
  * The MySQL connection
@@ -121,12 +107,17 @@ class Connection extends Closeable:
       _ <- stmt.prepare(query)
     yield stmt
 
+  def unsafePrepare(query: String): CanThrowWithZone[PreparedStatement] =
+    prepare(query) match
+      case Success(stmt) => stmt
+      case Failure(exn) => throw exn
+
   /**
    * Execute a prepared statement
    *
    * @param query SQL
    * @param args SQL params
-   * @return A Closeable [[com.mysql4s.rs.RowResultSet]] or a failure
+   * @return A Closeable [[io.mysql4s.rs.RowResultSet]] or a failure
    */
   def executeQuery(query: String, args: ScalaTypes*): TryWithZone[RowResultSet] =
     val stmt = new PreparedStatementImpl(this)
@@ -134,6 +125,11 @@ class Connection extends Closeable:
       _ <- stmt.init()
       rows <- stmt.executeQuery(query, args *)
     yield rows
+
+  def unsafeExecuteQuery(query: String, args: ScalaTypes*): CanThrowWithZone[RowResultSet] =
+    executeQuery(query, args *) match
+      case Success(value) => value
+      case Failure(ex) => throw ex
 
   /**
    * Execute a prepared statement
@@ -144,6 +140,11 @@ class Connection extends Closeable:
    */
   def rows(query: String, args: ScalaTypes*): TryWithZone[Seq[RowResult]] =
     UsingTryInOut(executeQuery(query, args*))(_.toSeq)
+
+  def unsafeRows(query: String, args: ScalaTypes*): CanThrowWithZone[Seq[RowResult]] =
+    rows(query, args*) match
+      case Success(v) => v
+      case Failure(ex) => throw ex
 
   /**
    * Execute a prepared statement
@@ -156,6 +157,14 @@ class Connection extends Closeable:
   def rows[T](query: String, args: ScalaTypes*)(f: RowResult => T): TryWithZone[Seq[T]] =
     UsingTryInOut(executeQuery(query, args*))(_.map(f))
 
+  def unsafeRows[T](query: String, args: ScalaTypes*)(f: RowResult => T): CanThrowWithZone[Seq[T]] =
+    rows(query, args*)(f) match
+      case Success(v) => v
+      case Failure(exception) => throw exception
+
+  def rowsAs[T](query: String, args: ScalaTypes*): CanThrowWithZone[Seq[QueryResult[T]]] =
+    unsafeRows(query, args *).map(_.getAsQueryResult[T])
+
   /**
    * Execute a prepared statement
    *
@@ -165,6 +174,14 @@ class Connection extends Closeable:
    */
   def firstRow(query: String, args: ScalaTypes*): TryWithZone[Option[RowResult]] =
     UsingTryInOut(executeQuery(query, args*))(_.first)
+
+  def unsafeFirstRow(query: String, args: ScalaTypes*): CanThrowWithZone[Option[RowResult]] =
+    firstRow(query, args*) match
+      case Success(v) => v
+      case Failure(ex) => throw ex
+
+  def firstRowAs[T](query: String, args: ScalaTypes*): CanThrowWithZone[Option[QueryResult[T]]] =
+    unsafeFirstRow(query, args*).map(_.getAsQueryResult[T])
 
   /**
    * Execute a prepared statement
@@ -176,6 +193,12 @@ class Connection extends Closeable:
    */
   def firstRow[T](query: String, args: ScalaTypes*)(f: RowResult => T): TryWithZone[Option[T]] =
     UsingTryInOut(executeQuery(query, args*))(_.firstMap(f))
+
+  def unsafeFirstRow[T](query: String, args: ScalaTypes*)(f: RowResult => T): CanThrowWithZone[Option[T]] =
+    firstRow(query, args*)(f) match
+      case Success(v) => v
+      case Failure(ex) => throw ex
+
 
   /**
    * Execute a non query prepared statement
@@ -192,11 +215,16 @@ class Connection extends Closeable:
           affectedRows <- stmt.execute(query, args *)
         yield affectedRows
 
+  def unsafeExecute(query: String, args: ScalaTypes*): CanThrowWithZone[Int] =
+    execute(query, args*) match
+      case Success(v) => v
+      case Failure(ex) => throw ex
+
   /**
    * Execute a query
    *
    * @param query SQL
-   * @return A Closeable [[com.mysql4s.rs.RowResultSet]] or failure
+   * @return A Closeable [[io.mysql4s.rs.RowResultSet]] or failure
    */
   def realExecuteQuery(query: String): TryWithZone[RowResultSet] =
     val (scapedQuery, len) = queryScape(query)
@@ -290,12 +318,16 @@ class Connection extends Closeable:
    * Close connection
    */
   override def close(): Unit =
-    mysql_close(mysqlPtr)
-  private def queryScape(query: String): WithZone[(CString, CUnsignedLongInt)] =
+    if mysqlPtr != null
+    then
+      mysql_close(mysqlPtr)
+      mysqlPtr = null
+
+  private def queryScape(query: String): CanThrowWithZone[(CString, CUnsignedLongInt)] =
     val ptr = query.c_str()
     val len = query.length
-    val scapedSize = 2 * len + 1
-    val chunk = alloc[CChar](scapedSize)
+    val scapeSize = 2 * len + 1
+    val chunk = alloc[CChar](scapeSize)
     val newLen = mysql_real_escape_string(mysqlPtr, chunk, ptr, len.toUInt)
     (chunk, newLen)
 

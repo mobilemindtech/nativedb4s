@@ -1,8 +1,9 @@
-package com.mysql4s.rs
+package io.mysql4s.rs
 
-import com.mysql4s.types.TypeConverter
-import com.mysql4s.{ScalaTypes, WithZone}
-import com.time4s.Date
+import io.mysql4s.types.TypeConverter
+import io.mysql4s.{QueryResult, ScalaTypes, WithZone}
+
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 /**
   * The row result
@@ -70,28 +71,21 @@ trait RowResult:
     * @param index Index 0 based or column name
     * @return A Time or None
     */
-  def getTime(index: Int | String): WithZone[Option[Date]]
+  def getTime(index: Int | String): WithZone[Option[LocalTime]]
   /**
     * Get result as Date
     *
     * @param index Index 0 based or column name
     * @return A Date or None
     */
-  def getDate(index: Int | String): WithZone[Option[Date]]
+  def getDate(index: Int | String): WithZone[Option[LocalDate]]
   /**
     * Get result as DateTime
     *
     * @param index Index 0 based or column name
     * @return A DateTime or None
     */
-  def getDateTime(index: Int | String): WithZone[Option[Date]]
-  /**
-    * Get result as Timestamp
-    *
-    * @param index Index 0 based or column name
-    * @return A Timestamp or None
-    */
-  def getTimestamp(index: Int | String): WithZone[Option[Date]]
+  def getDateTime(index: Int | String): WithZone[Option[LocalDateTime]]
   /**
     * Get result as T
     *
@@ -99,4 +93,11 @@ trait RowResult:
     * @return A T or None
     */
   def getAs[T <: ScalaTypes](index: Int | String)(using TypeConverter[T]): WithZone[Option[T]]
+
+  def getAsQueryResult[T]: WithZone[QueryResult[T]]
+  
+  def unsafeAs[T <: ScalaTypes](index: Int | String)(using TypeConverter[T]): WithZone[T | Null] =
+    getAs[T](index) match
+      case Some(v) => v
+      case None => null
 

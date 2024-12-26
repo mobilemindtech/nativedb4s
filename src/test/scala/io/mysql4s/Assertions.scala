@@ -1,17 +1,13 @@
-package com.mysql4s
+package io.mysql4s
 
-import com.time4s.Date
 import org.junit.Assert.*
 
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 import scala.util.Using.Releasable
 import scala.util.{Failure, Success, Try, Using}
 
 object Assertions:
 
-  enum MysqlDateType:
-    case MTime, MDate, MDateTime, MTimestamp
-
-  import MysqlDateType.*
 
   def assertOption[T <: Matchable](expected: T)(value: Option[T]): T =
     value match
@@ -25,36 +21,29 @@ object Assertions:
         assertEquals(expected, v)
         null.asInstanceOf[T]
 
-  def assertOptionDate(expected: MyDate, typ: MysqlDateType)(value: Option[Date]): Date =
+  def assertOptionDate[T <: LocalDate | LocalTime | LocalDateTime](expected: T)(value: Option[T]): T =
     value match
       case None =>
         fail(s"$value != $expected")
-        null.asInstanceOf[Date]
+        null.asInstanceOf[T]
       case Some(date) =>
 
-        typ match
-          case MTime =>
-            assertEquals("assert hours", expected.getDate.hours, date.hours)
-            assertEquals("assert minutes", expected.getDate.minutes, date.minutes)
-            assertEquals("assert seconds", expected.getDate.seconds, date.seconds)
-          case MDate =>
-            assertEquals("assert day", expected.getDate.day, date.day)
-            assertEquals("assert month", expected.getDate.month, date.month)
-            assertEquals("assert year", expected.getDate.year, date.year)
-          case MDateTime =>
-            assertEquals("assert hours", expected.getDate.hours, date.hours)
-            assertEquals("assert minutes", expected.getDate.minutes, date.minutes)
-            assertEquals("assert seconds", expected.getDate.seconds, date.seconds)
-            assertEquals("assert day", expected.getDate.day, date.day)
-            assertEquals("assert month", expected.getDate.month, date.month)
-            assertEquals("assert year", expected.getDate.year, date.year)
-          case MTimestamp =>
-            assertEquals("assert hours", expected.getDate.hours, date.hours)
-            assertEquals("assert minutes", expected.getDate.minutes, date.minutes)
-            assertEquals("assert seconds", expected.getDate.seconds, date.seconds)
-            assertEquals("assert day", expected.getDate.day, date.day)
-            assertEquals("assert month", expected.getDate.month, date.month)
-            assertEquals("assert year", expected.getDate.year, date.year)
+        (expected, date) match
+          case (v1: LocalTime, v2: LocalTime) =>
+            assertEquals("assert hours", v1.getHour, v2.getHour)
+            assertEquals("assert minutes", v1.getMinute, v2.getMinute)
+            assertEquals("assert seconds", v1.getSecond, v2.getSecond)
+          case (v1: LocalDate, v2: LocalDate) =>
+            assertEquals("assert day", v1.getDayOfMonth, v2.getDayOfMonth)
+            assertEquals("assert month", v1.getMonthValue, v2.getMonthValue)
+            assertEquals("assert year", v1.getYear, v2.getYear)
+          case (v1: LocalDateTime, v2: LocalDateTime) =>
+            assertEquals("assert hours", v1.getHour, v2.getHour)
+            assertEquals("assert minutes", v1.getMinute, v2.getMinute)
+            assertEquals("assert seconds", v1.getSecond, v2.getSecond)
+            assertEquals("assert day", v1.getDayOfMonth, v2.getDayOfMonth)
+            assertEquals("assert month", v1.getMonthValue, v2.getMonthValue)
+            assertEquals("assert year", v1.getYear, v2.getYear)
         date
 
   def assertTryOption[T](expected: T)(value: Try[Option[T]]): T =

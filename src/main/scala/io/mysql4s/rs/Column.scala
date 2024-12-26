@@ -1,6 +1,6 @@
-package com.mysql4s.rs
+package io.mysql4s.rs
 
-import com.mysql4s.bindings.enumerations.enum_field_types
+import io.mysql4s.bindings.enumerations.enum_field_types
 
 import scala.scalanative.unsafe.CVoidPtr
 

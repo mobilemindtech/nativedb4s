@@ -1,9 +1,9 @@
-package com.mysql4s.rs
+package io.mysql4s.rs
 
-import com.mysql4s.{MySqlException, TryWithZone, isMysqlBytes, isMysqlString, toStr, |>}
-import com.mysql4s.bindings.enumerations.enum_field_types
-import com.mysql4s.bindings.extern_functions.{mysql_data_seek, mysql_fetch_fields, mysql_fetch_lengths, mysql_fetch_row, mysql_free_result, mysql_num_fields, mysql_num_rows}
-import com.mysql4s.bindings.structs.{MYSQL_RES, MYSQL_TIME}
+import io.mysql4s.{MySqlException, TryWithZone, isMysqlBytes, isMysqlString, toStr, |>}
+import io.mysql4s.bindings.enumerations.enum_field_types
+import io.mysql4s.bindings.extern_functions.{mysql_data_seek, mysql_fetch_fields, mysql_fetch_lengths, mysql_fetch_row, mysql_free_result, mysql_num_fields, mysql_num_rows}
+import io.mysql4s.bindings.structs.{MYSQL_RES, MYSQL_TIME}
 
 import scala.collection.mutable
 import scala.scalanative.libc.stdlib.{atof, atoi, atoll}

@@ -1,13 +1,14 @@
-package com.mysql4s.stmt
+package io.mysql4s.stmt
 
-import com.mysql4s.MySqlException.exn
-import com.mysql4s.bindings.enumerations.enum_field_types
-import com.mysql4s.bindings.extern_functions.*
-import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_STMT}
-import com.mysql4s.rs.{RowResultSet, StatementResultSet}
-import com.mysql4s.types.TypeConverter
-import com.mysql4s.*
+import io.mysql4s.*
+import io.mysql4s.MySqlException.exn
+import io.mysql4s.bindings.enumerations.enum_field_types
+import io.mysql4s.bindings.extern_functions.*
+import io.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_STMT}
+import io.mysql4s.rs.{RowResultSet, StatementResultSet}
+import io.mysql4s.types.TypeConverter
 
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 import scala.compiletime.uninitialized
 import scala.scalanative.unsafe.{CBool, CInt, Ptr, alloc}
 import scala.scalanative.unsigned.UnsignedRichInt
@@ -50,6 +51,16 @@ private[mysql4s] class PreparedStatementImpl(mysql: Connection) extends Prepared
       _ <- resultSet.init()
     yield resultSet
 
+  override def unsafeExecuteQuery(): CanThrowWithZone[RowResultSet] =
+    executeQuery() match
+      case Success(v) => v
+      case Failure(ex) => throw ex
+
+  override def executeQueryAs[T](): CanThrowWithZone[Seq[QueryResult[T]]] =
+    unsafeExecuteQuery().map(_.getAsQueryResult[T]) match
+      case Success(v) => v
+      case Failure(ex) => throw ex
+
   override def executeQuery(query: String, args: ScalaTypes*): TryWithZone[RowResultSet] =
     for
       count <- prepare(query)
@@ -59,6 +70,16 @@ private[mysql4s] class PreparedStatementImpl(mysql: Connection) extends Prepared
         else Success(bindValues(args))
       rs <- executeQuery()
     yield rs
+
+  override def unsafeExecuteQuery(query: String, args: ScalaTypes*): CanThrowWithZone[RowResultSet] =
+    executeQuery(query, args*) match
+      case Success(v) => v
+      case Failure(exn) => throw exn
+
+  override def executeQueryAs[T](query: String, args: ScalaTypes*): CanThrowWithZone[Seq[QueryResult[T]]] =
+    unsafeExecuteQuery(query, args*).map(_.getAsQueryResult[T]) match
+      case Success(v) => v
+      case Failure(exn) => throw exn
 
   override def prepare(query: String): TryWithZone[Int] =
     if mysql_stmt_prepare(stmtPtr, query.c_str(), query.length.toUInt) > 0
@@ -115,17 +136,14 @@ private[mysql4s] class PreparedStatementImpl(mysql: Connection) extends Prepared
   override def setBoolean(index: Int, value: Boolean | Null): WithZone[PreparedStatement] =
     setAs[Boolean](index, value)
 
-  override def setTime(index: Int, value: MysqlTime | Null): WithZone[PreparedStatement] =
-    setAs[MysqlTime](index, value)
+  override def setTime(index: Int, value: LocalTime | Null): WithZone[PreparedStatement] =
+    setAs[LocalTime](index, value)
 
-  override def setDate(index: Int, value: MysqlDate | Null): WithZone[PreparedStatement] =
-    setAs[MysqlDate](index, value)
+  override def setDate(index: Int, value: LocalDate | Null): WithZone[PreparedStatement] =
+    setAs[LocalDate](index, value)
 
-  override def setDateTime(index: Int, value: MysqlDateTime | Null): WithZone[PreparedStatement] =
-    setAs[MysqlDateTime](index, value)
-
-  override def setTimestamp(index: Int, value: MysqlTimestamp | Null): WithZone[PreparedStatement] =
-    setAs[MysqlTimestamp](index, value)
+  override def setDateTime(index: Int, value: LocalDateTime | Null): WithZone[PreparedStatement] =
+    setAs[LocalDateTime](index, value)
 
   override def setBytes(index: CInt, value: Array[Byte] | Null): WithZone[PreparedStatement] =
     setAs[Array[Byte]](index, value)
@@ -144,10 +162,9 @@ private[mysql4s] class PreparedStatementImpl(mysql: Connection) extends Prepared
         case s: Short => setAs[Short](i, s)
         case s: Long => setAs[Long](i, s)
         case s: Array[Byte] => setAs[Array[Byte]](i, s)
-        case s: MysqlTime => setAs[MysqlTime](i, s)
-        case s: MysqlDate => setAs[MysqlDate](i, s)
-        case s: MysqlDateTime => setAs[MysqlDateTime](i, s)
-        case s: MysqlTimestamp => setAs[MysqlTimestamp](i, s)
+        case s: LocalTime => setAs[LocalTime](i, s)
+        case s: LocalDate => setAs[LocalDate](i, s)
+        case s: LocalDateTime => setAs[LocalDateTime](i, s)
 
   private def bind(): Try[Unit] =
     if mysql_stmt_bind_param(stmtPtr, bindPtr)

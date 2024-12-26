@@ -1,15 +1,15 @@
-package com.mysql4s
+package io.mysql4s
 
-import com.mysql4s.MySqlException.exn
-import com.mysql4s.bindings.enumerations.enum_field_types
-import com.mysql4s.bindings.extern_functions.{mysql_stmt_errno, mysql_stmt_error}
-import com.mysql4s.bindings.structs.MYSQL_STMT
-import com.time4s.Date
+import io.mysql4s.MySqlException.exn
+import io.mysql4s.bindings.enumerations.enum_field_types
+import io.mysql4s.bindings.extern_functions.{mysql_stmt_errno, mysql_stmt_error}
+import io.mysql4s.bindings.structs.MYSQL_STMT
 import scala.util.Using.Releasable
 import scala.scalanative.unsafe.{CString, Ptr, Zone, fromCString, toCString}
 import scala.util.Try
 import scala.util.Failure
 import scala.util.Success
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 extension[A, B] (a: A)
   infix def |>(f: A => B): B = f(a)
@@ -21,29 +21,6 @@ def toStr(value: CString): String = fromCString(value)
 
 type WithZone[T] = Zone ?=> T
 type TryWithZone[T] = WithZone[Try[T]]
-
-sealed trait MyDate:
-  def getDate: Date
-case class MysqlTime(date: Date) extends MyDate:
-  override def getDate: Date = date
-case class MysqlDate(date: Date) extends MyDate:
-  override def getDate: Date = date
-case class MysqlDateTime(date: Date) extends MyDate:
-  override def getDate: Date = date
-case class MysqlTimestamp(date: Date) extends MyDate:
-  override def getDate: Date = date
-
-object MysqlTime:
-  def now: Zone ?=> MysqlTime = MysqlTime(Date.now)
-
-object MysqlDate:
-  def now: Zone ?=> MysqlDate = MysqlDate(Date.now)
-
-object MysqlDateTime:
-  def now: Zone ?=> MysqlDateTime = MysqlDateTime(Date.now)
-
-object MysqlTimestamp:
-  def now: Zone ?=> MysqlTimestamp = MysqlTimestamp(Date.now)
 
 
 private[mysql4s] def isMysqlString(typ: enum_field_types): Boolean =
@@ -67,7 +44,7 @@ private[mysql4s] def isMysqlDecimal(typ: enum_field_types): Boolean =
 
 
 
-type ScalaTypes = String | Int | Short | Long | Float | Double | Boolean | Array[Byte] | MysqlDate | MysqlTime | MysqlDateTime | MysqlTimestamp
+type ScalaTypes = String | Int | Short | Long | Float | Double | Boolean | Array[Byte] | LocalDate | LocalTime | LocalDateTime
 
 
 extension (x: Any)
@@ -106,4 +83,6 @@ def UsingTryOut[R : Releasable, A](res: R)(f: R => Try[A])(using releasable: Rel
     releasable.release(res)
 
 
-  
+class QueryResult[T](rawValues: Map[String, Any]) extends Selectable:
+  type Fields = NamedTuple.Map[NamedTuple.From[T], Option]
+  def selectDynamic(fieldName: String) = rawValues.get(fieldName)  

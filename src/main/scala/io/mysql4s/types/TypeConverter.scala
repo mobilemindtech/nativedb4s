@@ -1,15 +1,28 @@
-package com.mysql4s.types
+package io.mysql4s.types
 
-import com.mysql4s.bindings.enumerations.enum_field_types
-import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_TIME}
-import com.mysql4s.{MysqlDate, MysqlDateTime, MysqlTime, MysqlTimestamp, ScalaTypes, WithZone, c_str, isMysqlDecimal, |>, toStr}
-import com.time4s.Date
-import com.time4s.TIME.*
+import io.mysql4s.bindings.enumerations.enum_field_types
+import io.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_TIME}
+import io.mysql4s.*
 
+
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 import scala.collection.mutable
 import scala.scalanative.libc.stdlib.atof
-import scala.scalanative.posix.time.tm
-import scala.scalanative.unsafe.{CBool, CChar, CDouble, CFloat, CInt, CLongLong, CShort, CString, CUnsignedLongInt, CVoidPtr, Ptr, Tag, alloc}
+import scala.scalanative.unsafe.{
+  CBool,
+  CChar,
+  CDouble,
+  CFloat,
+  CInt,
+  CLongLong,
+  CShort,
+  CString,
+  CUnsignedLongInt,
+  CVoidPtr,
+  Ptr,
+  Tag,
+  alloc
+}
 import scala.scalanative.unsigned.UnsignedRichInt
 
 private[mysql4s] trait TypeConverter[SType <: ScalaTypes]:
@@ -98,82 +111,56 @@ private[mysql4s] object TypeConverter:
       bind.buffer_length = v.length.toUInt
       bind.buffer_type = enum_field_types.MYSQL_TYPE_BLOB
 
-  given TypeConverter[MysqlTime]:
-    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlTime] =
+  given TypeConverter[LocalTime]:
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[LocalTime] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
-      val tmPtr = alloc[tm]()
-      tmPtr(0).hour_=(timePtr(0).hour.toInt)
-      tmPtr(0).minute_=(timePtr(0).minute.toInt)
-      tmPtr(0).second_=(timePtr(0).second.toInt)
-      MysqlTime(Date(tmPtr))
+      val hour = timePtr(0).hour.toInt
+      val minute = timePtr(0).minute.toInt
+      val second = timePtr(0).second.toInt
+      LocalTime.of(hour, minute, second)
 
-    def bindValue(v: MysqlTime, bind: MYSQL_BIND): WithZone[Unit] =
+    def bindValue(v: LocalTime, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[MYSQL_TIME]()
-      ptr(0).hour_=(v.date.hours.toUInt)
-      ptr(0).minute_=(v.date.minutes.toUInt)
-      ptr(0).second_=(v.date.seconds.toUInt)
+      (!ptr).hour = v.getHour.toUInt
+      (!ptr).minute = v.getMinute.toUInt
+      (!ptr).second = v.getSecond.toUInt
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_TIME
 
-  given TypeConverter[MysqlDate]:
-    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlDate] =
+  given TypeConverter[LocalDate]:
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[LocalDate] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
-      val tmPtr = alloc[tm]()
-      tmPtr(0).year_=(timePtr(0).year.toInt - 1900)
-      tmPtr(0).month_=(timePtr(0).month.toInt - 1)
-      tmPtr(0).day_=(timePtr(0).day.toInt)
-      MysqlDate(Date(tmPtr))
+      val year = timePtr(0).year.toInt
+      val month = timePtr(0).month.toInt
+      val day = timePtr(0).day.toInt
+      LocalDate.of(year, month, day)
 
-    def bindValue(v: MysqlDate, bind: MYSQL_BIND): WithZone[Unit] =
+    def bindValue(v: LocalDate, bind: MYSQL_BIND): WithZone[Unit] =
       val ptr = alloc[MYSQL_TIME]()
-      ptr(0).year_=(v.date.year.toUInt)
-      ptr(0).month_=(v.date.month.toUInt)
-      ptr(0).day_=(v.date.day.toUInt)
+      (!ptr).year = v.getYear.toUInt
+      (!ptr).month = v.getMonthValue.toUInt
+      (!ptr).day = v.getDayOfMonth.toUInt
       bind.buffer = ptr
       bind.buffer_type = enum_field_types.MYSQL_TYPE_DATE
 
-  given TypeConverter[MysqlDateTime]:
-    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlDateTime] =
+  given TypeConverter[LocalDateTime]:
+    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[LocalDateTime] =
       val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
-      val tmPtr = alloc[tm]()
-      tmPtr(0).year_=(timePtr(0).year.toInt - 1900)
-      tmPtr(0).month_=(timePtr(0).month.toInt - 1)
-      tmPtr(0).day_=(timePtr(0).day.toInt)
-      tmPtr(0).hour_=(timePtr(0).hour.toInt)
-      tmPtr(0).minute_=(timePtr(0).minute.toInt)
-      tmPtr(0).second_=(timePtr(0).second.toInt)
-      MysqlDateTime(Date(tmPtr))
+      val year = timePtr(0).year.toInt
+      val month = timePtr(0).month.toInt
+      val day = timePtr(0).day.toInt
+      val hour = timePtr(0).hour.toInt
+      val minute = timePtr(0).minute.toInt
+      val second = timePtr(0).second.toInt
+      LocalDateTime.of(year, month, day, hour, minute, second)
 
-    def bindValue(v: MysqlDateTime, bind: MYSQL_BIND): WithZone[Unit] =
-      val ptr = alloc[MYSQL_TIME]()
-      ptr(0).hour_=(v.date.hours.toUInt)
-      ptr(0).minute_=(v.date.minutes.toUInt)
-      ptr(0).second_=(v.date.seconds.toUInt)
-      ptr(0).year_=(v.date.year.toUInt)
-      ptr(0).month_=(v.date.month.toUInt)
-      ptr(0).day_=(v.date.day.toUInt)
-      bind.buffer = ptr
-      bind.buffer_type = enum_field_types.MYSQL_TYPE_DATETIME
-
-  given TypeConverter[MysqlTimestamp]:
-    def fromNative(v: CVoidPtr, typ: enum_field_types, len: Int): WithZone[MysqlTimestamp] =
-      val timePtr = v.asInstanceOf[Ptr[MYSQL_TIME]]
-      val tmPtr = alloc[tm]()
-      tmPtr(0).year_=(timePtr(0).year.toInt - 1900)
-      tmPtr(0).month_=(timePtr(0).month.toInt - 1)
-      tmPtr(0).day_=(timePtr(0).day.toInt)
-      tmPtr(0).hour_=(timePtr(0).hour.toInt)
-      tmPtr(0).minute_=(timePtr(0).minute.toInt)
-      tmPtr(0).second_=(timePtr(0).second.toInt)
-      MysqlTimestamp(Date(tmPtr))
-
-    def bindValue(v: MysqlTimestamp, bind: MYSQL_BIND): WithZone[Unit] =
-      val ptr = alloc[MYSQL_TIME]()
-      ptr(0).hour_=(v.date.hours.toUInt)
-      ptr(0).minute_=(v.date.minutes.toUInt)
-      ptr(0).second_=(v.date.seconds.toUInt)
-      ptr(0).year_=(v.date.year.toUInt)
-      ptr(0).month_=(v.date.month.toUInt)
-      ptr(0).day_=(v.date.day.toUInt)
-      bind.buffer = ptr
-      bind.buffer_type = enum_field_types.MYSQL_TYPE_DATETIME
+    def bindValue(v: LocalDateTime, bind: MYSQL_BIND): WithZone[Unit] =
+        val ptr = alloc[MYSQL_TIME]()
+        (!ptr).hour = v.getHour.toUInt
+        (!ptr).minute = v.getMinute.toUInt
+        (!ptr).second = v.getSecond.toUInt
+        (!ptr).year = v.getYear.toUInt
+        (!ptr).month = v.getMonthValue.toUInt
+        (!ptr).day = v.getDayOfMonth.toUInt
+        bind.buffer = ptr
+        bind.buffer_type = enum_field_types.MYSQL_TYPE_DATETIME

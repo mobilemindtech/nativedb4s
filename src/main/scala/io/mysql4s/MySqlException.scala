@@ -1,4 +1,4 @@
-package com.mysql4s
+package io.mysql4s
 
 /**
   * MySQL Exception

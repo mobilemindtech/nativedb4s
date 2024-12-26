@@ -1,10 +1,10 @@
-package com.mysql4s.rs
+package io.mysql4s.rs
 
-import com.mysql4s.{TryWithZone, WithZone, collectStmtExn, isMysqlBytes, isMysqlDecimal, isMysqlString, toStr, |>}
-import com.mysql4s.bindings.enumerations.enum_field_types
-import com.mysql4s.bindings.extern_functions.{mysql_free_result, mysql_stmt_bind_result, mysql_stmt_close, mysql_stmt_data_seek, mysql_stmt_fetch, mysql_stmt_fetch_column, mysql_stmt_field_count, mysql_stmt_num_rows, mysql_stmt_result_metadata, mysql_stmt_store_result}
-import com.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TIME}
-import com.mysql4s.stmt.ZoneUnit
+import io.mysql4s.{TryWithZone, WithZone, collectStmtExn, isMysqlBytes, isMysqlDecimal, isMysqlString, toStr, |>}
+import io.mysql4s.bindings.enumerations.enum_field_types
+import io.mysql4s.bindings.extern_functions.{mysql_free_result, mysql_stmt_bind_result, mysql_stmt_close, mysql_stmt_data_seek, mysql_stmt_fetch, mysql_stmt_fetch_column, mysql_stmt_field_count, mysql_stmt_num_rows, mysql_stmt_result_metadata, mysql_stmt_store_result}
+import io.mysql4s.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TIME}
+import io.mysql4s.stmt.ZoneUnit
 
 import scala.collection.mutable
 import scala.compiletime.uninitialized

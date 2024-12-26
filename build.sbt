@@ -6,7 +6,7 @@ import bindgen.interface.Binding
 import bindgen.plugin.BindgenMode
 import com.indoorvivants.detective.Platform
 
-scalaVersion := "3.5.0"
+scalaVersion := "3.6.2"
 name := "mysql4s"
 organization := "com.mysql4s"
 
@@ -27,9 +27,11 @@ scalacOptions ++= Seq(
   "-explain",
   "-explain-cyclic",
   "-rewrite",
-  //"-source:3.6",
   "-source:future",
-  "-language:experimental.modularity"
+  "-language:experimental.modularity",
+  "-language:experimental.betterFors",
+  "-language:experimental.namedTuples",
+
 )
 
 lazy val root = project.in(file(".")).
@@ -41,6 +43,8 @@ lazy val root = project.in(file(".")).
 
     libraryDependencies ++= Seq(
       //"org.scalameta" %% "munit" % "1.0.0" % Test
+      "io.github.cquiroz" %%% "scala-java-time" % "2.6.0",
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0"
     ),
 
     // defaults set with common options shown
@@ -138,7 +142,7 @@ lazy val root = project.in(file(".")).
 
 val bindgenSettings = Seq(
   bindgenMode := BindgenMode.Manual(
-    scalaDir = (Compile / sourceDirectory).value / "scala" / "com" / "mysql4s" / "bindings",
+    scalaDir = (Compile / sourceDirectory).value / "scala" / "io" / "mysql4s" / "bindings",
     cDir = (Compile / resourceDirectory).value / "scala-native" / "mysql"
   ),
   bindgenBindings := {

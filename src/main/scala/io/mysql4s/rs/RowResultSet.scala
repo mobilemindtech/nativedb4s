@@ -1,6 +1,6 @@
-package com.mysql4s.rs
+package io.mysql4s.rs
 
-import com.mysql4s.TryWithZone
+import io.mysql4s.TryWithZone
 
 import scala.annotation.tailrec
 import scala.collection.mutable
