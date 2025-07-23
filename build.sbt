@@ -1,4 +1,6 @@
-resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
+resolvers += Resolver.sonatypeRepo("snapshots")
+
 import scala.language.postfixOps
 import scala.scalanative.build.*
 import scala.sys.process.*
@@ -6,7 +8,7 @@ import bindgen.interface.Binding
 import bindgen.plugin.BindgenMode
 import com.indoorvivants.detective.Platform
 
-scalaVersion := "3.6.2"
+scalaVersion := "3.7.1"
 name := "mysql4s"
 organization := "com.mysql4s"
 
@@ -28,9 +30,6 @@ scalacOptions ++= Seq(
   "-explain-cyclic",
   "-rewrite",
   "-source:future",
-  "-language:experimental.modularity",
-  "-language:experimental.betterFors",
-  "-language:experimental.namedTuples",
 
 )
 
@@ -172,6 +171,6 @@ def configurePlatform(rename: String => String = identity) = Seq(
 
 addCommandAlias("run", "appStart")
 
-ThisBuild/usePipelining := true
+//ThisBuild/usePipelining := true
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-a", "-s", "-v")

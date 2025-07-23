@@ -12,6 +12,7 @@ import scala.language.experimental.namedTuples
 
 case class User(id: Int, name: String, username: String, password: Boolean, enabled: Boolean)
 
+
 object MySQLTest:
 
   given zone: Zone = Zone.open()
