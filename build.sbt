@@ -1,4 +1,3 @@
-
 resolvers += Resolver.sonatypeRepo("snapshots")
 
 import scala.language.postfixOps
@@ -8,7 +7,7 @@ import bindgen.interface.Binding
 import bindgen.plugin.BindgenMode
 import com.indoorvivants.detective.Platform
 
-scalaVersion := "3.7.1"
+scalaVersion := "3.7.3"
 name := "mysql4s"
 organization := "com.mysql4s"
 
@@ -21,34 +20,36 @@ lazy val showPid = inputKey[Unit]("show app PID")
 
 scalacOptions ++= Seq(
   "-new-syntax",
-  //"-no-indent",
+  // "-no-indent",
   "-Wvalue-discard",
   "-Wunused:all",
-  //"-Werror",
+  // "-Werror",
   "-deprecation",
   "-explain",
   "-explain-cyclic",
   "-rewrite",
-  "-source:future",
-
+  "-source:future"
 )
 
-lazy val root = project.in(file(".")).
-  enablePlugins(ScalaNativePlugin, BindgenPlugin, VcpkgNativePlugin, ScalaNativeJUnitPlugin).
-  settings(
-
+lazy val root = project
+  .in(file("."))
+  .enablePlugins(
+    ScalaNativePlugin,
+    BindgenPlugin,
+    VcpkgNativePlugin,
+    ScalaNativeJUnitPlugin
+  )
+  .settings(
     vcpkgDependencies := VcpkgDependencies("libmysql", "openssl", "zlib"),
     vcpkgNativeConfig ~= { _.addRenamedLibrary("libmysql", "mysqlclient") },
-
     libraryDependencies ++= Seq(
-      //"org.scalameta" %% "munit" % "1.0.0" % Test
+      // "org.scalameta" %% "munit" % "1.0.0" % Test
       "io.github.cquiroz" %%% "scala-java-time" % "2.6.0",
       "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.6.0"
     ),
 
     // defaults set with common options shown
     nativeConfig ~= { c =>
-
       c.withLinkingOptions(c.linkingOptions.flatMap {
         case "-lresolv-lresolv" => Some("-lresolv")
         case "-lm-lresolv"      => None
@@ -56,14 +57,18 @@ lazy val root = project.in(file(".")).
       }).withLTO(LTO.none) // thin
         .withMode(Mode.debug) // releaseFast
         .withGC(GC.immix)
-        //.withLinkingOptions(
+        // .withLinkingOptions(
         //  c.linkingOptions ++ Seq(
         //    "-lmysqlclient"
         //  )
-        //)
-        .withSourceLevelDebuggingConfig(_.enableAll) // enable generation of debug informations
-        .withOptimize(false)  // disable Scala Native optimizer
-        .withMode(scalanative.build.Mode.debug) // compile using LLVM without optimizations
+        // )
+        .withSourceLevelDebuggingConfig(
+          _.enableAll
+        ) // enable generation of debug informations
+        .withOptimize(false) // disable Scala Native optimizer
+        .withMode(
+          scalanative.build.Mode.debug
+        ) // compile using LLVM without optimizations
         .withCompileOptions(c.compileOptions ++ Seq("-g"))
     },
     bindgenBindings += {
@@ -87,23 +92,39 @@ lazy val root = project.in(file(".")).
     },
     appStop := {
       val logger: TaskStreams = streams.value
-      val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
+      val shell: Seq[String] =
+        if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c")
+        else Seq("bash", "-c")
       val cmdGetPid = Seq(
-        "ps", "-ef", "|", "grep", name.value, "|", "grep", "-v", "grep", "|", "awk", "'{print $2}'"
+        "ps",
+        "-ef",
+        "|",
+        "grep",
+        name.value,
+        "|",
+        "grep",
+        "-v",
+        "grep",
+        "|",
+        "awk",
+        "'{print $2}'"
       ).mkString(" ")
 
-      //logger.log.info(s"execute: ${cmdGetPid.mkString(" ")}")
+      // logger.log.info(s"execute: ${cmdGetPid.mkString(" ")}")
       val pid = ((shell :+ cmdGetPid) !!)
       if (pid.nonEmpty) {
 
         logger.log.info(s"PID=$pid")
 
         val cmd = Seq(
-          "kill", "-s", "9", pid
+          "kill",
+          "-s",
+          "9",
+          pid
         ).mkString(" ")
 
         val result = ((shell :+ cmd) ! logger.log)
-        if(result == 0){
+        if (result == 0) {
           logger.log.success(s"stop app successful")
         } else {
           logger.log.success("stop app failure")
@@ -112,20 +133,32 @@ lazy val root = project.in(file(".")).
         logger.log.info("app is not running")
       }
     },
-
     showPid := {
       val logger: TaskStreams = streams.value
-      val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
+      val shell: Seq[String] =
+        if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c")
+        else Seq("bash", "-c")
       val cmd = Seq(
-        "ps", "-ef", "|", "grep", name.value, "|", "grep", "-v", "grep", "|", "awk", "'{print $2}'"
+        "ps",
+        "-ef",
+        "|",
+        "grep",
+        name.value,
+        "|",
+        "grep",
+        "-v",
+        "grep",
+        "|",
+        "awk",
+        "'{print $2}'"
       ).mkString(" ")
 
-      //logger.log.info(s"execute: ${cmd.mkString(" ")}")
+      // logger.log.info(s"execute: ${cmd.mkString(" ")}")
       val pid = (shell :+ cmd) !!
 
-      if(pid.nonEmpty){
+      if (pid.nonEmpty) {
         logger.log.info(s"PID=$pid")
-      }else{
+      } else {
         logger.log.info(s"pid not found")
       }
     },
@@ -141,7 +174,8 @@ lazy val root = project.in(file(".")).
 
 val bindgenSettings = Seq(
   bindgenMode := BindgenMode.Manual(
-    scalaDir = (Compile / sourceDirectory).value / "scala" / "io" / "mysql4s" / "bindings",
+    scalaDir =
+      (Compile / sourceDirectory).value / "scala" / "io" / "mysql4s" / "bindings",
     cDir = (Compile / resourceDirectory).value / "scala-native" / "mysql"
   ),
   bindgenBindings := {
