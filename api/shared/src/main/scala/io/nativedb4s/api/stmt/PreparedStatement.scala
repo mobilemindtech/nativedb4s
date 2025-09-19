@@ -17,7 +17,7 @@ trait PreparedStatement extends AutoCloseable:
   def setDateTime(index: Int, value: LocalDateTime | Null): PreparedStatement
   def setTime(index: Int, value: LocalTime | Null): PreparedStatement
   def setBytes(index: Int, value: Array[Byte] | Null): PreparedStatement
- // def setAs[T <: ScalaTypes](index: Int, value: T | Null): PreparedStatement
+  // def setAs[T <: ScalaTypes](index: Int, value: T | Null): PreparedStatement
   def execute(): Int
   def execute(query: String, args: ScalaTypes*): Int
   def executeQuery(): RowResultSet
@@ -26,5 +26,3 @@ trait PreparedStatement extends AutoCloseable:
   def executeQueryAs[T](query: String, args: ScalaTypes*): Seq[QueryResult[T]]
   def prepare(query: String): Int
   def lastInsertID: Int
-
-

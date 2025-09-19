@@ -4,16 +4,35 @@ import io.nativedb4s.api.rs.{RowResult, RowResultSet}
 import io.nativedb4s.api.util.|>
 import io.nativedb4s.mysql.bindings.enumerations.enum_field_types
 import io.nativedb4s.mysql.bindings.extern_functions.*
-import io.nativedb4s.mysql.bindings.structs.{MYSQL_BIND, MYSQL_RES, MYSQL_STMT, MYSQL_TIME}
+import io.nativedb4s.mysql.bindings.structs.{
+  MYSQL_BIND,
+  MYSQL_RES,
+  MYSQL_STMT,
+  MYSQL_TIME
+}
 import io.nativedb4s.mysql.rs.{Column, RowResultImpl}
 import io.nativedb4s.mysql.util.*
 
 import scala.collection.mutable
 import scala.compiletime.uninitialized
-import scala.scalanative.unsafe.{CBool, CChar, CDouble, CFloat, CInt, CLongLong, CShort, CUnsignedLongInt, CVoidPtr, Ptr, Zone, alloc}
+import scala.scalanative.unsafe.{
+  CBool,
+  CChar,
+  CDouble,
+  CFloat,
+  CInt,
+  CLongLong,
+  CShort,
+  CUnsignedLongInt,
+  CVoidPtr,
+  Ptr,
+  Zone,
+  alloc
+}
 import scala.scalanative.unsigned.UnsignedRichInt
 
-private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone) extends RowResultSet:
+private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone)
+    extends RowResultSet:
 
   private var resPtr: Ptr[MYSQL_RES] = uninitialized
 
@@ -27,7 +46,7 @@ private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone) 
   private var numRows: Int = 0
   private var numFields: Int = 0
   private var currRowIndex: Int = 0
-  
+
   def init(): Unit =
     readMetadataResult()
     bindFields()
@@ -90,7 +109,7 @@ private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone) 
         for col <- columns do
 
           val valPtr =
-            if isMysqlString(col.typ)  // decimal return char[]
+            if isMysqlString(col.typ) // decimal return char[]
             then allocColumnString(col)
             else if isMysqlBytes(col.typ) || isMysqlDecimal(col.typ)
             then allocColumnBytes(col)
@@ -104,7 +123,9 @@ private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone) 
               isNull = isNullPtr(col.index),
               length = lengthPtr(col.index).toInt,
               error = errorPtr(col.index),
-              ptr = valPtr))
+              ptr = valPtr
+            )
+          )
 
         currRowIndex += 1
         RowResultImpl(cols.toSeq) |> Some.apply
@@ -144,16 +165,15 @@ private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone) 
         alloc[CLongLong]()
       case enum_field_types.MYSQL_TYPE_SHORT =>
         alloc[CShort]()
-      case enum_field_types.MYSQL_TYPE_DOUBLE  =>
+      case enum_field_types.MYSQL_TYPE_DOUBLE =>
         alloc[CDouble]()
       case enum_field_types.MYSQL_TYPE_FLOAT =>
         alloc[CFloat]()
       case enum_field_types.MYSQL_TYPE_TINY =>
         alloc[CBool]()
-      case enum_field_types.MYSQL_TYPE_TIME |
-           enum_field_types.MYSQL_TYPE_DATE |
-           enum_field_types.MYSQL_TYPE_DATETIME |
-           enum_field_types.MYSQL_TYPE_TIMESTAMP =>
+      case enum_field_types.MYSQL_TYPE_TIME | enum_field_types.MYSQL_TYPE_DATE |
+          enum_field_types.MYSQL_TYPE_DATETIME |
+          enum_field_types.MYSQL_TYPE_TIMESTAMP =>
         alloc[MYSQL_TIME]()
       case _ =>
         alloc[CChar]()
@@ -162,15 +182,16 @@ private[mysql] class RowResultSetStmtImpl(stmtPtr: Ptr[MYSQL_STMT])(using Zone) 
   private def bindResult(): Unit =
     if mysql_stmt_bind_result(stmtPtr, bindsPtr)
     then throw collectStmtExn("Failed to bind statement result", stmtPtr)
-    
+
   private def storeResult(): Unit =
     if mysql_stmt_store_result(stmtPtr) > 0
     then throw collectStmtExn("Failed to store statement result", stmtPtr)
-    
+
   private def readMetadataResult(): Unit =
     resPtr = mysql_stmt_result_metadata(stmtPtr)
     if resPtr == null
-    then throw collectStmtExn("Failed to get statement result metadata", stmtPtr)
+    then
+      throw collectStmtExn("Failed to get statement result metadata", stmtPtr)
 
   def close(): Unit =
     mysql_free_result(resPtr)

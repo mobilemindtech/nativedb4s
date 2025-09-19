@@ -1,7 +1,6 @@
 package io.nativedb4s.api.types
 
-/**
-  * MySQL Exception
+/** MySQL Exception
   *
   * @param message
   * @param code
