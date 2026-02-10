@@ -8,7 +8,7 @@ import scala.util.{Failure, Success, Try}
 
 object Assertions:
 
-  def assertF[T](expected: T)(value: T): T = 
+  def assertF[T](expected: T)(value: T): T =
     assertEquals(expected, value)
     value
 
@@ -18,13 +18,18 @@ object Assertions:
         fail(s"$value != $expected")
         null.asInstanceOf[T]
       case Some(v: Array[Byte]) =>
-        assertArrayEquals(expected.asInstanceOf[Array[Byte]], v.asInstanceOf[Array[Byte]])
+        assertArrayEquals(
+          expected.asInstanceOf[Array[Byte]],
+          v.asInstanceOf[Array[Byte]]
+        )
         null.asInstanceOf[T]
       case Some(v) =>
         assertEquals(expected, v)
         null.asInstanceOf[T]
 
-  def assertOptionDate[T <: LocalDate | LocalTime | LocalDateTime](expected: T)(value: Option[T]): T =
+  def assertOptionDate[T <: LocalDate | LocalTime | LocalDateTime](expected: T)(
+      value: Option[T]
+  ): T =
     value match
       case None =>
         fail(s"$value != $expected")

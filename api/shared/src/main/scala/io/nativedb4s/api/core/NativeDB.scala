@@ -11,36 +11,33 @@ opaque type DBPort = Int
 object DBHost:
   def apply(s: String): DBHost = s
 
-extension(self: DBHost)
-  def host: String = self
+extension (self: DBHost) def host: String = self
 
 object DBUser:
   def apply(s: String): DBUser = s
 
-extension(self: DBUser)
-  def user: String = self
+extension (self: DBUser) def user: String = self
 
 object DBPassword:
   def apply(s: String): DBPassword = s
 
-extension(self: DBPassword)
-  def password: String = self
+extension (self: DBPassword) def password: String = self
 
 object DBDatabase:
   def apply(s: String): DBDatabase = s
 
-extension(self: DBDatabase)
-  def database: String = self
+extension (self: DBDatabase) def database: String = self
 
 object DBPort:
   def apply(s: Int): DBPort = s
 
-extension(self: DBPort)
-  def port: Int = self
+extension (self: DBPort) def port: Int = self
 
 trait NativeDB:
-  def connect(host: DBHost,
-              user: DBUser,
-              password: DBPassword,
-              database: DBDatabase,
-              port: DBPort): Connection
+  def connect(
+      host: DBHost,
+      user: DBUser,
+      password: DBPassword,
+      database: DBDatabase,
+      port: DBPort
+  ): Connection

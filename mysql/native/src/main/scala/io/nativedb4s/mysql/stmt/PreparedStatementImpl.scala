@@ -17,7 +17,10 @@ import scala.scalanative.unsafe.{CBool, CInt, Ptr, Zone, alloc}
 import scala.scalanative.unsigned.UnsignedRichInt
 
 extension (p: PreparedStatement)
-  def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using tc: TypeConverter[T], z: Zone): PreparedStatement =
+  def setAs[T <: ScalaTypes](index: Int, value: T | Null)(using
+      tc: TypeConverter[T],
+      z: Zone
+  ): PreparedStatement =
     val bind = p.asInstanceOf[PreparedStatementImpl].bindPtr(index)
     bind.length = null
     bind.is_null = null
@@ -51,7 +54,7 @@ class PreparedStatementImpl(using Zone) extends PreparedStatement:
 
   override def execute(query: String, args: ScalaTypes*): Int =
     val count = prepare(query)
-    if count != args.length 
+    if count != args.length
     then throw exn(s"expected $count args but has ${args.length}")
     bindValues(args.toSeq)
     bind()
@@ -66,9 +69,8 @@ class PreparedStatementImpl(using Zone) extends PreparedStatement:
     resultSet.init()
     resultSet
 
-  
   override def executeQueryAs[T](): Seq[QueryResult[T]] =
-    executeQuery().map(_.getAsQueryResult[T]) 
+    executeQuery().map(_.getAsQueryResult[T])
 
   override def executeQuery(query: String, args: ScalaTypes*): RowResultSet =
     val count = prepare(query)
@@ -76,11 +78,13 @@ class PreparedStatementImpl(using Zone) extends PreparedStatement:
     then throw exn(s"Query require $count args, but has ${args.length}")
     bindValues(args)
     executeQuery()
-    
-  
-  override def executeQueryAs[T](query: String, args: ScalaTypes*): Seq[QueryResult[T]] =
+
+  override def executeQueryAs[T](
+      query: String,
+      args: ScalaTypes*
+  ): Seq[QueryResult[T]] =
     executeQuery(query, args*).map(_.getAsQueryResult[T])
-     
+
   override def prepare(query: String): Int =
     if mysql_stmt_prepare(stmtPtr, query.c_str(), query.length.toUInt) > 0
     then throw collectStmtExn("Failed to prepare statement", stmtPtr)
@@ -118,7 +122,10 @@ class PreparedStatementImpl(using Zone) extends PreparedStatement:
   override def setFloat(index: Int, value: Float | Null): PreparedStatement =
     this.setAs[Float](index, value)
 
-  override def setBoolean(index: Int, value: Boolean | Null): PreparedStatement =
+  override def setBoolean(
+      index: Int,
+      value: Boolean | Null
+  ): PreparedStatement =
     this.setAs[Boolean](index, value)
 
   override def setTime(index: Int, value: LocalTime | Null): PreparedStatement =
@@ -127,10 +134,16 @@ class PreparedStatementImpl(using Zone) extends PreparedStatement:
   override def setDate(index: Int, value: LocalDate | Null): PreparedStatement =
     this.setAs[LocalDate](index, value)
 
-  override def setDateTime(index: Int, value: LocalDateTime | Null): PreparedStatement =
+  override def setDateTime(
+      index: Int,
+      value: LocalDateTime | Null
+  ): PreparedStatement =
     this.setAs[LocalDateTime](index, value)
 
-  override def setBytes(index: CInt, value: Array[Byte] | Null): PreparedStatement =
+  override def setBytes(
+      index: CInt,
+      value: Array[Byte] | Null
+  ): PreparedStatement =
     this.setAs[Array[Byte]](index, value)
 
   override def lastInsertID: Int =
@@ -139,20 +152,19 @@ class PreparedStatementImpl(using Zone) extends PreparedStatement:
   private def bindValues(values: Seq[ScalaTypes]): Unit =
     for i <- values.indices do
       values(i) match
-        case s: String => this.setAs[String](i, s)
-        case s: Boolean => this.setAs[Boolean](i, s)
-        case s: Float => this.setAs[Float](i, s)
-        case s: Double => this.setAs[Double](i, s)
-        case s: Int => this.setAs[Int](i, s)
-        case s: Short => this.setAs[Short](i, s)
-        case s: Long => this.setAs[Long](i, s)
-        case s: Array[Byte] => this.setAs[Array[Byte]](i, s)
-        case s: LocalTime => this.setAs[LocalTime](i, s)
-        case s: LocalDate => this.setAs[LocalDate](i, s)
+        case s: String        => this.setAs[String](i, s)
+        case s: Boolean       => this.setAs[Boolean](i, s)
+        case s: Float         => this.setAs[Float](i, s)
+        case s: Double        => this.setAs[Double](i, s)
+        case s: Int           => this.setAs[Int](i, s)
+        case s: Short         => this.setAs[Short](i, s)
+        case s: Long          => this.setAs[Long](i, s)
+        case s: Array[Byte]   => this.setAs[Array[Byte]](i, s)
+        case s: LocalTime     => this.setAs[LocalTime](i, s)
+        case s: LocalDate     => this.setAs[LocalDate](i, s)
         case s: LocalDateTime => this.setAs[LocalDateTime](i, s)
 
   private def bind(): Unit =
     if mysql_stmt_bind_param(stmtPtr, bindPtr)
     then throw collectStmtExn("Failed to bind statement", stmtPtr)
     else ()
-

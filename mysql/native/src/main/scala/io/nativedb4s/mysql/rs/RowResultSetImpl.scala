@@ -10,11 +10,21 @@ import io.nativedb4s.mysql.util.*
 
 import scala.collection.mutable
 import scala.scalanative.libc.stdlib.{atof, atoi, atoll}
-import scala.scalanative.unsafe.{CBool, CDouble, CInt, CLongLong, CShort, CVoidPtr, Ptr, Zone, alloc}
+import scala.scalanative.unsafe.{
+  CBool,
+  CDouble,
+  CInt,
+  CLongLong,
+  CShort,
+  CVoidPtr,
+  Ptr,
+  Zone,
+  alloc
+}
 import scala.scalanative.unsigned.UnsignedRichInt
 
-
-private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone) extends RowResultSet:
+private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone)
+    extends RowResultSet:
 
   private var numFields: Int = 0
   private var numRows: Int = 0
@@ -34,8 +44,11 @@ private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone) extend
           name = toStr(col.name),
           index = i,
           typ = col.`type`,
-          precision = col.length.toInt - (if col.decimals.toInt > 0 then 2 else 1),
-          decimals = col.decimals.toInt))
+          precision =
+            col.length.toInt - (if col.decimals.toInt > 0 then 2 else 1),
+          decimals = col.decimals.toInt
+        )
+      )
 
   override def count: Int = numRows
 
@@ -56,7 +69,7 @@ private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone) extend
 
     val cols = mutable.ListBuffer[Column]()
     for col <- columns do
-      //println(s"${col.name}, ${col.typ}")
+      // println(s"${col.name}, ${col.typ}")
       val valRow = row.value(col.index)
       val valPtr: CVoidPtr = col.typ match
         case enum_field_types.MYSQL_TYPE_LONG =>
@@ -72,8 +85,8 @@ private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone) extend
           !ptr = atoi(valRow).toShort
           ptr
         case enum_field_types.MYSQL_TYPE_DOUBLE |
-             enum_field_types.MYSQL_TYPE_NEWDECIMAL |
-             enum_field_types.MYSQL_TYPE_DECIMAL =>
+            enum_field_types.MYSQL_TYPE_NEWDECIMAL |
+            enum_field_types.MYSQL_TYPE_DECIMAL =>
           val ptr = alloc[CDouble]()
           !ptr = atof(valRow)
           ptr
@@ -86,16 +99,15 @@ private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone) extend
           !ptr = atoi(valRow) == 1
           ptr
         case enum_field_types.MYSQL_TYPE_TIME |
-             enum_field_types.MYSQL_TYPE_DATE |
-             enum_field_types.MYSQL_TYPE_DATETIME |
-             enum_field_types.MYSQL_TYPE_TIMESTAMP =>
+            enum_field_types.MYSQL_TYPE_DATE |
+            enum_field_types.MYSQL_TYPE_DATETIME |
+            enum_field_types.MYSQL_TYPE_TIMESTAMP =>
           val ptr = alloc[MYSQL_TIME]()
           ptr
         case _ =>
           if isMysqlString(col.typ) || isMysqlBytes(col.typ)
           then valRow
-          else
-            throw MySqlException(s"type ${col.typ} not handled")
+          else throw MySqlException(s"type ${col.typ} not handled")
 
       cols.append(
         Column(
@@ -104,7 +116,9 @@ private[mysql] class RowResultSetImpl(resPtr: Ptr[MYSQL_RES])(using Zone) extend
           typ = col.typ,
           isNull = valPtr == null,
           length = lengths(col.index).toInt,
-          ptr = valPtr))
+          ptr = valPtr
+        )
+      )
 
     currRowIndex += 1
     RowResultImpl(cols.toSeq) |> Some.apply
