@@ -7,7 +7,7 @@ import bindgen.plugin.BindgenMode
 import com.indoorvivants.detective.Platform
 
 
-ThisBuild / scalaVersion := "3.7.3"
+ThisBuild / scalaVersion := "3.8.1"
 ThisBuild / organization := "io.nativedb4s"
 ThisBuild / name := "nativedb4s"
 
