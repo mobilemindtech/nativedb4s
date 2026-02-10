@@ -14,7 +14,9 @@ trait Connection extends Closeable:
   def rows[T](query: String, args: ScalaTypes*)(f: RowResult => T): Seq[T]
   def rowsAs[T](query: String, args: ScalaTypes*): Seq[QueryResult[T]]
   def firstRow(query: String, args: ScalaTypes*): Option[RowResult]
-  def firstRow[T](query: String, args: ScalaTypes*)(f: RowResult => T): Option[T]
+  def firstRow[T](query: String, args: ScalaTypes*)(
+      f: RowResult => T
+  ): Option[T]
   def firstRowAs[T](query: String, args: ScalaTypes*): Option[QueryResult[T]]
   def lastInsertID: Int
   def affectedRows: Int
